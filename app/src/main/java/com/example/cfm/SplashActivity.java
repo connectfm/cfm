@@ -41,14 +41,12 @@ public class SplashActivity extends AppCompatActivity {
     private static final String redirectUri = "https://example.com/callback/";
     private static final String[] scopes = new String[]{"user-read-email", "user-library-modify" , "user-read-email" , "user-read-private"};
     private static final int reqCode = 0x10;
-
-    @RequiresApi(api = Build.VERSION_CODES.M)
+    
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         System.out.println("poo poo poo");
-        locationTest();
 
         setContentView(R.layout.activity_splash);
 
@@ -57,10 +55,12 @@ public class SplashActivity extends AppCompatActivity {
         queue = Volley.newRequestQueue(this);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onResume() {
         super.onResume();
         System.out.println("resumed the thing");
+        locationTest();
     }
 
     @Override
