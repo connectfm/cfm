@@ -123,29 +123,6 @@ public class MainActivity extends AppCompatActivity {
         editor.clear();
         Intent intent = new Intent(MainActivity.this, SplashActivity.class);
         startActivity(intent);
-
-       // checkPermissions(AppOpsManager.OPSTR_COARSE_LOCATION, Settings.ACTION_LOCATION_SOURCE_SETTINGS);
-       //testLocation();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.M)
-    public void checkPermissions(String permission, String setting) {
-        System.out.println(permission + "\t" + setting);
-        AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
-        if (appOps.checkOpNoThrow(permission, android.os.Process.myUid(), getPackageName()) == AppOpsManager.MODE_ALLOWED)
-            System.out.println("we do have permission");
-        else startActivityForResult(new Intent(setting), 69);
-    }
-
-    @RequiresApi(api = Build.VERSION_CODES.R)
-    public void testLocation() {
-        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
-        Criteria criteria = new Criteria();
-        String provider = lm.getBestProvider(criteria, false);
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            System.out.println("LOCATION CHECK FAILING FOR SOME REASON?!?!?!?!");
-            return;
-        }
-        Location l = lm.getLastKnownLocation(provider);
-    }
 }

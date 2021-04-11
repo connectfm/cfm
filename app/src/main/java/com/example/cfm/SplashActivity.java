@@ -1,14 +1,19 @@
 package com.example.cfm;
 
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 
 import android.Manifest;
+import android.app.AppOpsManager;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 
 import com.android.volley.RequestQueue;
@@ -37,6 +42,7 @@ public class SplashActivity extends AppCompatActivity {
     private static final String[] scopes = new String[]{"user-read-email", "user-library-modify" , "user-read-email" , "user-read-private"};
     private static final int reqCode = 0x10;
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -108,22 +114,17 @@ public class SplashActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.M)
     private void locationTest() {
         FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
+            System.out.println("mango smoothie");
+            checkPermissions(AppOpsManager.OPSTR_COARSE_LOCATION, Settings.ACTION_LOCATION_SOURCE_SETTINGS);
         }
         client.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
             @Override
             public void onSuccess(Location location) {
-                System.out.println("lemonade cosplay");
+                System.out.println("already had permission");
                 System.out.println("Location: \t" + location);
                 System.out.println("Latitude: \t" + location.getLatitude());
                 System.out.println("Longitude:\t" + location.getLongitude());
@@ -131,5 +132,14 @@ public class SplashActivity extends AppCompatActivity {
                 System.out.println("Geohash:  \t" + hash);
             }
         });
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.M)
+    public void checkPermissions(String permission, String setting) {
+        System.out.println(permission + "\t" + setting);
+        AppOpsManager appOps = (AppOpsManager) getSystemService(Context.APP_OPS_SERVICE);
+        if (appOps.checkOpNoThrow(permission, android.os.Process.myUid(), getPackageName()) == AppOpsManager.MODE_ALLOWED)
+            System.out.println("we do have permission");
+        else startActivityForResult(new Intent(setting), 69);
     }
 }

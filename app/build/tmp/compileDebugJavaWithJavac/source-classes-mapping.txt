@@ -2,21 +2,21 @@ com/example/spotify_framework/User.java
  com.example.spotify_framework.User
 com/example/cfm/ui/dashboard/DashboardViewModel.java
  com.example.cfm.ui.dashboard.DashboardViewModel
-com/example/spotify_framework/UserService.java
- com.example.spotify_framework.UserService
- com.example.spotify_framework.UserService$1
-com/example/cfm/ui/dashboard/DashboardFragment.java
- com.example.cfm.ui.dashboard.DashboardFragment
- com.example.cfm.ui.dashboard.DashboardFragment$1
 com/example/cfm/MainActivity.java
  com.example.cfm.MainActivity
  com.example.cfm.MainActivity$1
+com/example/cfm/ui/dashboard/DashboardFragment.java
+ com.example.cfm.ui.dashboard.DashboardFragment
+ com.example.cfm.ui.dashboard.DashboardFragment$1
+com/example/spotify_framework/UserService.java
+ com.example.spotify_framework.UserService
+ com.example.spotify_framework.UserService$1
 com/example/spotify_framework/Playlist.java
  com.example.spotify_framework.Playlist
-com/example/spotify_framework/Genre.java
- com.example.spotify_framework.Genre
 com/example/cfm/ui/home/HomeViewModel.java
  com.example.cfm.ui.home.HomeViewModel
+com/example/spotify_framework/Genre.java
+ com.example.spotify_framework.Genre
 com/example/spotify_framework/Song.java
  com.example.spotify_framework.Song
 com/example/cfm/FirstFragment.java
