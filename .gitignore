@@ -96,3 +96,5 @@ obj/
 *.json
 .idea/
 app/build/intermediates
+*.bin
+*.lock
