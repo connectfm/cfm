@@ -69,7 +69,6 @@ public class MainActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        System.out.println("debugging stuff");
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 

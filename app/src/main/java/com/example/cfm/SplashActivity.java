@@ -13,6 +13,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 
@@ -22,6 +23,9 @@ import com.example.spotify_framework.User;
 import com.example.spotify_framework.UserService;
 import com.fonfon.geohash.GeoHash;
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.spotify.sdk.android.auth.AuthorizationClient;
@@ -122,18 +126,28 @@ public class SplashActivity extends AppCompatActivity {
             System.out.println("mango smoothie");
             checkPermissions(AppOpsManager.OPSTR_COARSE_LOCATION, Settings.ACTION_LOCATION_SOURCE_SETTINGS);
         }
-        client.flushLocations();
-        client.getCurrentLocation(102, null).addOnSuccessListener(this, new OnSuccessListener<Location>() {
+        /*client.getCurrentLocation(102, null).addOnSuccessListener(this, new OnSuccessListener<Location>() {
             @Override
-            public void onSuccess(Location location) {
-                System.out.println("already had permission");
-                System.out.println("Location: \t" + location);
-                System.out.println("Latitude: \t" + location.getLatitude());
-                System.out.println("Longitude:\t" + location.getLongitude());
-                GeoHash hash = GeoHash.fromLocation(location, 5);
-                System.out.println("Geohash:  \t" + hash);
+            public void onSuccess(Location location) {printLocation(location);}
+        });*/
+        LocationRequest lr = LocationRequest.create();
+        lr.setInterval(500)
+                .setFastestInterval(0)
+                .setMaxWaitTime(0)
+                .setSmallestDisplacement(0)
+                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        client.requestLocationUpdates(lr, new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                if (locationResult == null) {
+                    return;
+                }
+                for (Location location : locationResult.getLocations()) {
+                    printLocation(location);
+                }
             }
-        });
+        }, Looper.getMainLooper());
+
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -143,5 +157,18 @@ public class SplashActivity extends AppCompatActivity {
         if (appOps.checkOpNoThrow(permission, android.os.Process.myUid(), getPackageName()) == AppOpsManager.MODE_ALLOWED)
             System.out.println("we do have permission");
         else startActivityForResult(new Intent(setting), 69);
+    }
+
+    private void printLocation(Location location) {
+        if (location != null) {
+            System.out.println("hell ya nonnull location");
+            System.out.println("Location: \t" + location);
+            System.out.println("Latitude: \t" + location.getLatitude());
+            System.out.println("Longitude:\t" + location.getLongitude());
+            GeoHash hash = GeoHash.fromLocation(location, 5);
+            System.out.println("Geohash:  \t" + hash);
+        } else {
+            System.out.println("damn");
+        }
     }
 }
