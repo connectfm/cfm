@@ -122,7 +122,8 @@ public class SplashActivity extends AppCompatActivity {
             System.out.println("mango smoothie");
             checkPermissions(AppOpsManager.OPSTR_COARSE_LOCATION, Settings.ACTION_LOCATION_SOURCE_SETTINGS);
         }
-        client.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
+        client.flushLocations();
+        client.getCurrentLocation(102, null).addOnSuccessListener(this, new OnSuccessListener<Location>() {
             @Override
             public void onSuccess(Location location) {
                 System.out.println("already had permission");
