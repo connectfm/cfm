@@ -41,7 +41,7 @@ public class SplashActivity extends AppCompatActivity {
     private static final String redirectUri = "https://example.com/callback/";
     private static final String[] scopes = new String[]{"user-read-email", "user-library-modify" , "user-read-email" , "user-read-private"};
     private static final int reqCode = 0x10;
-    
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -117,6 +117,7 @@ public class SplashActivity extends AppCompatActivity {
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void locationTest() {
         FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
+        System.out.println("permissions status: " + ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION));
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             System.out.println("mango smoothie");
             checkPermissions(AppOpsManager.OPSTR_COARSE_LOCATION, Settings.ACTION_LOCATION_SOURCE_SETTINGS);
