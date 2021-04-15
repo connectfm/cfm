@@ -124,6 +124,19 @@ class Recommender:
 		song = self.sample(np.array(songs), np.array(ratings))
 		return song
 
+	async def sample_cluster(self, user: User, neighbor: User) -> int:
+		"""Returns a cluster based on user and neighbor contexts."""
+		n_clusters = await redis.get('n_clusters')
+		c_ratings = np.zeros(n_clusters)
+		idx = 0
+		async for cluster in redis.iscan('cluster_*'):
+			async for song in redis.sscan(f'cluster_{cluster}'):
+				rating = self.adj_rating(user, neighbor, song)
+				c_ratings[idx] += rating
+			idx += 1
+		cluster = self.sample(np.arange(n_clusters), c_ratings)
+		return cluster
+
 	def adj_rating(self, user: User, neighbor: User, song: str) -> int:
 		"""Computes an context-based adjusted rating of a song."""
 
@@ -150,19 +163,6 @@ class Recommender:
 		den = sum(biases * dists)
 		rating = num / den
 		return rating
-
-	async def sample_cluster(self, user: User, neighbor: User) -> int:
-		"""Returns a cluster based on user and neighbor contexts."""
-		n_clusters = await redis.get('n_clusters')
-		c_ratings = np.zeros(n_clusters)
-		idx = 0
-		async for cluster in redis.iscan('cluster_*'):
-			async for song in redis.sscan(f'cluster_{cluster}'):
-				rating = self.adj_rating(user, neighbor, song)
-				c_ratings[idx] += rating
-			idx += 1
-		cluster = self.sample(np.arange(n_clusters), c_ratings)
-		return cluster
 
 	@staticmethod
 	def delta(timestamp: float) -> float:
