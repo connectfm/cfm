@@ -9,6 +9,7 @@ from scipy.spatial import distance
 
 NOW = datetime.datetime.utcnow()
 DAY_IN_SECS = 86_400
+NEUTRAL_RATING = 2
 
 redis = await aioredis.create_redis_pool('redis://localhost')
 
@@ -58,6 +59,7 @@ class Recommender:
 	rng = attr.ib(type=np.random.Generator, default=np.random.default_rng())
 
 	async def recommend(self, user: str) -> str:
+		"""Returns a recommended song based on a user."""
 		user = User.from_name(user)
 		neighbors = await self.get_neighbors(user)
 		if neighbors.size > 0:
@@ -70,11 +72,13 @@ class Recommender:
 
 	@staticmethod
 	async def get_neighbors(user: User) -> np.ndarray:
+		"""Returns the other nearby users of a given user."""
 		neighbors = redis.georadius(user.name, user.long, user.lat, user.rad)
 		return np.array(neighbors)
 
 	@staticmethod
 	async def get_tastes(*users: str) -> np.ndarray:
+		"""Returns the taste vectors of one or more users."""
 		tastes = redis.mget(*(f'{user}_taste' for user in users))
 		return np.array(tastes)
 
@@ -83,30 +87,33 @@ class Recommender:
 			user: User,
 			neighbors: np.ndarray,
 			tastes: np.ndarray) -> User:
+		"""Returns a neighbor using taste to weight the sampling."""
 		u_taste = np.array([user.taste])
 		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)
 		similarity = 1 / (1 + dissimilarity)
-		neighbor, taste = self.sample(neighbors, similarity, with_weight=True)
-		neighbor = User(neighbor, taste=taste)
+		neighbor, idx = self.sample(neighbors, similarity, with_index=True)
+		neighbor = User(neighbor, taste=tastes[idx])
 		return neighbor
 
 	def sample(
 			self,
 			population: np.ndarray,
 			weights: np.ndarray,
-			with_weight: bool = False) -> Any:
+			with_index: bool = False) -> Any:
+		"""Returns an element from the population using weighted sampling."""
 		probs = weights / sum(weights)
-		if with_weight:
+		if with_index:
 			population = np.vstack((np.arange(len(population)), population)).T
 			idx_and_sample = self.rng.choice(population, p=probs)
 			idx, sample = idx_and_sample[0], idx_and_sample[1:]
 			sample = sample.item() if sample.shape == (1,) else sample
-			sample = (sample, weights[idx])
+			sample = (sample, idx)
 		else:
 			sample = self.rng.choice(population, p=probs)
 		return sample
 
 	async def sample_song(self, user: User, neighbor: User) -> str:
+		"""Returns a song based on user and neighbor contexts."""
 		cluster = await self.sample_cluster(user, neighbor)
 		songs, ratings = [], []
 		idx = 0
@@ -118,6 +125,13 @@ class Recommender:
 		return song
 
 	def adj_rating(self, user: User, neighbor: User, song: str) -> int:
+		"""Computes an context-based adjusted rating of a song."""
+
+		def capacitive(r, t):
+			r = np.where(r < NEUTRAL_RATING, -np.exp(-t) + NEUTRAL_RATING, r)
+			r = np.where(r > NEUTRAL_RATING, np.exp(-t) + NEUTRAL_RATING, r)
+			return r
+
 		result = await redis.mget(
 			song,
 			f'{user.name}_{song}_rating',
@@ -125,19 +139,20 @@ class Recommender:
 			f'{user.name}_{song}_time',
 			f'{neighbor.name}_{song}_time')
 		feats, user.rating, neighbor.rating, user.time, neighbor.time = result
+		ratings = np.array([user.rating, neighbor.rating])
+		deltas = np.array([self.delta(user.time), self.delta(neighbor.time)])
+		ratings = capacitive(ratings, deltas)
+		biases = np.array([user.bias, 1 - user.bias])
 		dists = np.array([
 			self.metric(user.taste, feats),
 			self.metric(neighbor.taste, feats)])
-		discounts = np.array([
-			self.delta(user.time), self.delta(neighbor.time)])
-		biases = np.array([user.bias, 1 - user.bias])
-		ratings = np.array([user.rating, neighbor.rating])
-		num = sum(biases * ratings * np.exp(-discounts))
+		num = sum(biases * ratings)
 		den = sum(biases * dists)
 		rating = num / den
 		return rating
 
 	async def sample_cluster(self, user: User, neighbor: User) -> int:
+		"""Returns a cluster based on user and neighbor contexts."""
 		n_clusters = await redis.get('n_clusters')
 		c_ratings = np.zeros(n_clusters)
 		idx = 0
@@ -151,6 +166,7 @@ class Recommender:
 
 	@staticmethod
 	def delta(timestamp: float) -> float:
+		"""Returns the difference in days between a timestamp and now."""
 		delta = NOW - datetime.datetime.utcfromtimestamp(timestamp)
 		delta = delta.total_seconds() / DAY_IN_SECS
 		return delta
