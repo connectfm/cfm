@@ -57,6 +57,9 @@ class User:
 			attrs[m] = v
 		if self.taste is None:
 			self.taste = np.array(redis.get('avg_taste'))
+			logger.warning(
+				f'Unable to find taste of user {self.name}. Using average '
+				f'taste {self.taste}')
 		else:
 			self.taste = np.array(self.taste)
 
