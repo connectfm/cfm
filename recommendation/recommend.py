@@ -29,8 +29,6 @@ class User:
 	lat = attr.ib(type=numbers.Real, default=None)
 	long = attr.ib(type=numbers.Real, default=None)
 	rad = attr.ib(type=numbers.Real, default=None)
-	rating = attr.ib(type=int, default=None)
-	time = attr.ib(type=numbers.Real, default=None)
 
 	def __attrs_post_init__(self):
 		if self.taste is not None:
@@ -201,27 +199,26 @@ class Recommender:
 		return cluster
 
 	def adj_rating(self, user: User, neighbor: User, song: str) -> int:
-		"""Computes an context-based adjusted rating of a song."""
+		"""Computes a context-based adjusted rating of a song."""
 
 		def capacitive(r, t):
 			r = np.where(r < NEUTRAL_RATING, -np.exp(-t) + NEUTRAL_RATING, r)
 			r = np.where(r > NEUTRAL_RATING, np.exp(-t) + NEUTRAL_RATING, r)
 			return r
 
-		result = await redis.mget(
+		features, u_rating, ne_rating, u_time, ne_time = await redis.mget(
 			song,
 			f'{user.name}_{song}_rating',
 			f'{neighbor.name}_{song}_rating',
 			f'{user.name}_{song}_time',
 			f'{neighbor.name}_{song}_time')
-		feats, user.rating, neighbor.rating, user.time, neighbor.time = result
-		ratings = np.array([user.rating, neighbor.rating])
-		deltas = np.array([self.delta(user.time), self.delta(neighbor.time)])
+		ratings = np.array([u_rating, ne_rating])
+		deltas = np.array([self.delta(u_time), self.delta(ne_time)])
 		ratings = capacitive(ratings, deltas)
 		biases = np.array([user.bias, 1 - user.bias])
 		dists = np.array([
-			self.metric(user.taste, feats),
-			self.metric(neighbor.taste, feats)])
+			self.metric(user.taste, features),
+			self.metric(neighbor.taste, features)])
 		num = sum(biases * ratings)
 		den = sum(biases * dists)
 		rating = num / den
