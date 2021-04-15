@@ -70,8 +70,8 @@ class Recommender:
 
 	@staticmethod
 	async def get_neighbors(user: User) -> np.ndarray:
-		neighbor = redis.georadius(user.name, user.long, user.lat, user.rad)
-		return np.array(neighbor)
+		neighbors = redis.georadius(user.name, user.long, user.lat, user.rad)
+		return np.array(neighbors)
 
 	@staticmethod
 	async def get_tastes(*users: str) -> np.ndarray:
@@ -83,8 +83,8 @@ class Recommender:
 			user: User,
 			neighbors: np.ndarray,
 			tastes: np.ndarray) -> User:
-		dissimilarity = distance.cdist(
-			np.array([user.taste]), tastes, metric=self.metric)
+		u_taste = np.array([user.taste])
+		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)
 		similarity = 1 / (1 + dissimilarity)
 		neighbor, taste = self.sample(neighbors, similarity, with_weight=True)
 		neighbor = User(neighbor, taste=taste)
