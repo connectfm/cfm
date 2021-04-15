@@ -1,15 +1,22 @@
 import datetime
+import logging
 import numbers
-from typing import Any, Callable
+import random
+from typing import Any, Callable, Tuple
 
 import aioredis
 import attr
 import numpy as np
 from scipy.spatial import distance
 
+from recommendation import exceptions
+
 NOW = datetime.datetime.utcnow()
 DAY_IN_SECS = 86_400
 NEUTRAL_RATING = 2
+
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 redis = await aioredis.create_redis_pool('redis://localhost')
 
@@ -30,6 +37,7 @@ class User:
 			self.taste = np.array(self.taste)
 
 	def retrieve(self):
+		logger.info(f'Retrieving attributes for user {self.name}')
 		attrs = [self.taste, self.bias, self.lat, self.long, self.rad]
 		missing = np.array([a is None for a in attrs])
 		missing = np.flatnonzero(missing)
@@ -41,9 +49,16 @@ class User:
 			f'{self.name}_rad'])
 		query = keys[missing]
 		values = redis.mget(*query)
+		if not any(values):
+			raise exceptions.UserNotFoundError(f'Unable to find {self.name}')
+		if not all(values):
+			logger.warning(
+				f'Unable to find all attributes for user {self.name}: '
+				f'{[v for v in values if v is None]}')
 		for m, v in zip(missing, values):
 			attrs[m] = v
-		self.taste = np.array(self.taste)
+		if self.taste is not None:
+			self.taste = np.array(self.taste)
 
 	@classmethod
 	def from_name(cls, name: str):
@@ -58,29 +73,71 @@ class Recommender:
 	metric = attr.ib(type=Callable, default=distance.euclidean)
 	rng = attr.ib(type=np.random.Generator, default=np.random.default_rng())
 
+	def __attrs_post_init__(self):
+		logger.debug(f'Distance metric: {self.metric}')
+		logger.debug(f'Numpy random state: {np.random.get_state()}')
+		logger.debug(f'Python random state: {random.getstate()}')
+
 	async def recommend(self, user: str) -> str:
 		"""Returns a recommended song based on a user."""
+		logger.info(f'Retrieving a recommendation for user {user}')
 		user = User.from_name(user)
+		logger.info(f'Finding the neighbors of user {user}')
 		neighbors = await self.get_neighbors(user)
 		if neighbors.size > 0:
-			tastes = await self.get_tastes(*neighbors)
-			neighbor = self.sample_neighbor(user, neighbors, tastes)
+			logger.info('Retrieving the music tastes of neighbors')
+			neighbors, tastes = await self.get_tastes(*neighbors)
+			if neighbors.size > 0:
+				logger.info('Sampling a neighbor for a recommendation')
+				neighbor = self.sample_neighbor(user, neighbors, tastes)
+			else:
+				logger.warning(
+					'Unable to find any neighbors with a taste attribute. '
+					f'Using user {user.name} as their own neighbor')
+				# TODO(rdt17) Still possible that user does not have a taste.
+				#  Maybe keep track of an average taste in redis to use as
+				#  default
+				neighbor = user
 		else:
+			logger.warning(
+				f'Unable to find neighbors of user {user.name} either because '
+				f'of missing attributes or because no users are present '
+				f'within the set radius. Using user {user.name} as their own '
+				f'neighbor')
 			neighbor = user
+		logger.info('Sampling a song for recommendation')
 		song = await self.sample_song(user, neighbor)
 		return song
 
 	@staticmethod
 	async def get_neighbors(user: User) -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
-		neighbors = redis.georadius(user.name, user.long, user.lat, user.rad)
-		return np.array(neighbors)
+		geolocation = {
+			'latitude': user.lat, 'longitude': user.long, 'radius': user.rad}
+		if not all(geolocation):
+			logger.warning(
+				f'Unable to find all geolocation attributes of user'
+				f' {user.name}: '
+				f'{[k for k, v in geolocation.items() if v is None]}')
+			ne = []
+		else:
+			ne = redis.georadius(user.name, *geolocation.values())
+			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
+		return np.array(ne)
 
 	@staticmethod
-	async def get_tastes(*users: str) -> np.ndarray:
+	async def get_tastes(*users: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the taste vectors of one or more users."""
 		tastes = redis.mget(*(f'{user}_taste' for user in users))
-		return np.array(tastes)
+		if not all(tastes):
+			logger.warning(
+				'Unable to find tastes for users: '
+				f'{[t for t in tastes if t is None]}')
+			logger.warning('Filtering out neighbors with missing tastes')
+			present = [(u, t) for u, t in zip(users, tastes) if t is not None]
+			users = [u for u, _ in present]
+			tastes = [t for _, t in present]
+		return np.array(users), np.array(tastes)
 
 	def sample_neighbor(
 			self,
@@ -92,6 +149,7 @@ class Recommender:
 		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)
 		similarity = 1 / (1 + dissimilarity)
 		neighbor, idx = self.sample(neighbors, similarity, with_index=True)
+		logger.info(f'User {neighbor.name} sampled for a recommendation')
 		neighbor = User(neighbor, taste=tastes[idx])
 		return neighbor
 
@@ -114,6 +172,7 @@ class Recommender:
 
 	async def sample_song(self, user: User, neighbor: User) -> str:
 		"""Returns a song based on user and neighbor contexts."""
+		logger.info('Sampling a cluster for a song')
 		cluster = await self.sample_cluster(user, neighbor)
 		songs, ratings = [], []
 		idx = 0
@@ -127,6 +186,10 @@ class Recommender:
 	async def sample_cluster(self, user: User, neighbor: User) -> int:
 		"""Returns a cluster based on user and neighbor contexts."""
 		n_clusters = await redis.get('n_clusters')
+		if n_clusters is None:
+			logger.warning('Unable to find the number of clusters. Using 50')
+			n_clusters = 50
+		# TODO(rdt17) Left off here
 		c_ratings = np.zeros(n_clusters)
 		idx = 0
 		async for cluster in redis.iscan('cluster_*'):
