@@ -1,138 +1,156 @@
-from collections import Callable
-from typing import Any, Tuple
+import datetime
+import numbers
+from typing import Any, Callable
 
 import aioredis
 import attr
 import numpy as np
 from scipy.spatial import distance
 
-from recommendation import synthetic
+NOW = datetime.datetime.utcnow()
+DAY_IN_SECS = 86_400
 
 redis = await aioredis.create_redis_pool('redis://localhost')
-Taste = np.ndarray
-User = str
-Neighbors = np.ndarray
-Song = str
-Rating = int
-Bias = float
+
+
+@attr.s(slots=True)
+class User:
+	name = attr.ib(type=str)
+	taste = attr.ib(type=np.ndarray, default=None)
+	bias = attr.ib(type=numbers.Real, default=None)
+	lat = attr.ib(type=numbers.Real, default=None)
+	long = attr.ib(type=numbers.Real, default=None)
+	rad = attr.ib(type=numbers.Real, default=None)
+	rating = attr.ib(type=int, default=None)
+	time = attr.ib(type=numbers.Real, default=None)
+
+	def __attrs_post_init__(self):
+		if self.taste is not None:
+			self.taste = np.array(self.taste)
+
+	def retrieve(self):
+		attrs = [self.taste, self.bias, self.lat, self.long, self.rad]
+		missing = np.array([a is None for a in attrs])
+		missing = np.flatnonzero(missing)
+		keys = np.array([
+			f'{self.name}_taste',
+			f'{self.name}_bias',
+			f'{self.name}_lat',
+			f'{self.name}_long',
+			f'{self.name}_rad'])
+		query = keys[missing]
+		values = redis.mget(*query)
+		for m, v in zip(missing, values):
+			attrs[m] = v
+		self.taste = np.array(self.taste)
+
+	@classmethod
+	def from_name(cls, name: str):
+		user = User(name)
+		user.retrieve()
+		return user
 
 
 @attr.s(slots=True, frozen=True)
 class Recommender:
+	"""Recommendation system for connect.fm"""
 	metric = attr.ib(type=Callable, default=distance.euclidean)
-	rng = attr.ib(type=np.random.Generator, default=np.random.default_rng)
+	rng = attr.ib(type=np.random.Generator, default=np.random.default_rng())
 
-	async def recommend(self, u: User):
-		ne = await self.get_neighbors(u)
-		u_taste, ne_tastes = await self.get_tastes(u, *ne)
-		if ne.size:
-			ne, ne_taste = self.sample_neighbor(ne, u_taste, ne_tastes)
+	async def recommend(self, user: str) -> str:
+		user = User.from_name(user)
+		neighbors = await self.get_neighbors(user)
+		if neighbors.size > 0:
+			tastes = await self.get_tastes(*neighbors)
+			neighbor = self.sample_neighbor(user, neighbors, tastes)
 		else:
-			ne, ne_taste = u, u_taste
-		song = await self.sample_song(u, ne, u_taste, ne_taste)
+			neighbor = user
+		song = await self.sample_song(user, neighbor)
 		return song
 
-	async def get_neighbors(self, u: User) -> Neighbors:
-		long, lat, r = await redis.mget(*(f'{u}_long', f'{u}_lat', f'{u}_r'))
-		ne = redis.georadius(u, long, lat, r)
-		return ne
+	@staticmethod
+	async def get_neighbors(user: User) -> np.ndarray:
+		neighbor = redis.georadius(user.name, user.long, user.lat, user.rad)
+		return np.array(neighbor)
 
-	async def get_tastes(self, u: User, *ne: User) -> Tuple[Taste, Taste]:
-		tastes = redis.mget(*(f'{n}_taste' for n in zip(u, *ne)))
-		u_taste, ne_tastes = np.array(tastes[0]), np.array(tastes[1:])
-		return u_taste, ne_tastes
+	@staticmethod
+	async def get_tastes(*users: str) -> np.ndarray:
+		tastes = redis.mget(*(f'{user}_taste' for user in users))
+		return np.array(tastes)
 
 	def sample_neighbor(
 			self,
-			ne: Neighbors,
-			u_taste: Taste,
-			ne_tastes: Taste) -> Tuple[User, Taste]:
-		u_taste = np.array([u_taste])
-		diff = distance.cdist(u_taste, ne_tastes, metric=self.metric)
-		sim = 1 / (1 + diff)
-		ne, taste = self.sample(ne, sim, with_weight=True)
-		return ne, taste
-
-	async def sample_song(
-			self, u: User, ne: User, u_taste: Taste, ne_taste: Taste) -> Song:
-		bias = redis.get(f'{u}_bias')
-		cluster = self.sample_cluster(u, ne, u_taste, ne_taste, bias)
-		songs, ratings = [], []
-		idx = 0
-		async for s in redis.sscan(f'cluster_{cluster}'):
-			u_rating, ne_rating, s_features = redis.mget(
-				f'{u}_{s}_rating', f'{ne}_{s}_rating', f'{s}_features')
-			rating = self.adjusted_rating(
-				s_features, u_taste, ne_taste, u_rating, ne_rating, bias)
-			songs[idx] = s
-			ratings[idx] = rating
-			idx += 1
-		song = self.sample(np.array(songs), np.array(ratings))
-		return song
-
-	async def sample_cluster(
-			self,
-			u: User,
-			ne: User,
-			u_taste: Taste,
-			ne_taste: Taste,
-			bias: Bias):
-		n_clusters = redis.get('n_clusters')
-		c_ratings = np.zeros(n_clusters)
-		async for cluster in redis.iscan('cluster_*'):
-			c = int(cluster.split()[-1])
-			async for s in redis.sscan(cluster):
-				u_rating, ne_rating, s_features = redis.mget(
-					f'{u}_{s}_rating', f'{ne}_{s}_rating', s)
-				rating = self.adjusted_rating(
-					s_features, u_taste, ne_taste, u_rating, ne_rating, bias)
-				c_ratings[c] += rating
-		cluster = self.sample(np.arange(n_clusters), c_ratings)
-		return cluster
-
-	def adjusted_rating(
-			self,
-			song: Taste,
-			u_taste: Taste,
-			ne_taste: Taste,
-			u_rating: Rating,
-			ne_rating: Rating,
-			bias: Bias):
-		u_dist = self.metric(u_taste, song)
-		ne_dist = self.metric(ne_taste, song)
-		num = (bias * u_rating) + ((1 - bias) * ne_rating)
-		den = (bias * u_dist) + ((1 - bias) * ne_dist)
-		rating = num / den
-		return rating
+			user: User,
+			neighbors: np.ndarray,
+			tastes: np.ndarray) -> User:
+		dissimilarity = distance.cdist(
+			np.array([user.taste]), tastes, metric=self.metric)
+		similarity = 1 / (1 + dissimilarity)
+		neighbor, taste = self.sample(neighbors, similarity, with_weight=True)
+		neighbor = User(neighbor, taste=taste)
+		return neighbor
 
 	def sample(
 			self,
-			pop: np.ndarray,
+			population: np.ndarray,
 			weights: np.ndarray,
 			with_weight: bool = False) -> Any:
 		probs = weights / sum(weights)
 		if with_weight:
-			pop = np.vstack(np.arange(len(pop)), pop).T
-			idx_and_sample = self.rng.choice(pop, p=probs)
+			population = np.vstack((np.arange(len(population)), population)).T
+			idx_and_sample = self.rng.choice(population, p=probs)
 			idx, sample = idx_and_sample[0], idx_and_sample[1:]
+			sample = sample.item() if sample.shape == (1,) else sample
 			sample = (sample, weights[idx])
 		else:
-			sample = self.rng.choice(pop, p=probs)
+			sample = self.rng.choice(population, p=probs)
 		return sample
 
+	async def sample_song(self, user: User, neighbor: User) -> str:
+		cluster = await self.sample_cluster(user, neighbor)
+		songs, ratings = [], []
+		idx = 0
+		async for song in redis.sscan(f'cluster_{cluster}'):
+			rating = self.adj_rating(user, neighbor, song)
+			songs[idx], ratings[idx] = song, rating
+			idx += 1
+		song = self.sample(np.array(songs), np.array(ratings))
+		return song
 
-if __name__ == '__main__':
-	u_rating = 1
-	ne_rating = 3
-	u_taste = synthetic.get_taste()
-	ne_taste = synthetic.get_taste()
-	song = synthetic.get_taste()
-	rec = Recommender()
-	rating = rec.adjusted_rating(
-		song=song,
-		u_taste=u_taste,
-		ne_taste=ne_taste,
-		u_rating=u_rating,
-		ne_rating=ne_rating,
-		bias=0.5)
-	print(rating)
+	def adj_rating(self, user: User, neighbor: User, song: str) -> int:
+		result = await redis.mget(
+			song,
+			f'{user.name}_{song}_rating',
+			f'{neighbor.name}_{song}_rating',
+			f'{user.name}_{song}_time',
+			f'{neighbor.name}_{song}_time')
+		feats, user.rating, neighbor.rating, user.time, neighbor.time = result
+		dists = np.array([
+			self.metric(user.taste, feats),
+			self.metric(neighbor.taste, feats)])
+		discounts = np.array([
+			self.delta(user.time), self.delta(neighbor.time)])
+		biases = np.array([user.bias, 1 - user.bias])
+		ratings = np.array([user.rating, neighbor.rating])
+		num = sum(biases * ratings * np.exp(-discounts))
+		den = sum(biases * dists)
+		rating = num / den
+		return rating
+
+	async def sample_cluster(self, user: User, neighbor: User) -> int:
+		n_clusters = await redis.get('n_clusters')
+		c_ratings = np.zeros(n_clusters)
+		idx = 0
+		async for cluster in redis.iscan('cluster_*'):
+			async for song in redis.sscan(f'cluster_{cluster}'):
+				rating = self.adj_rating(user, neighbor, song)
+				c_ratings[idx] += rating
+			idx += 1
+		cluster = self.sample(np.arange(n_clusters), c_ratings)
+		return cluster
+
+	@staticmethod
+	def delta(timestamp: float) -> float:
+		delta = NOW - datetime.datetime.utcfromtimestamp(timestamp)
+		delta = delta.total_seconds() / DAY_IN_SECS
+		return delta
