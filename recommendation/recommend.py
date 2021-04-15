@@ -207,7 +207,7 @@ class Recommender:
 			return r
 
 		features, u_rating, ne_rating, u_time, ne_time = await redis.mget(
-			song,
+			f'song_{song}',
 			f'{user.name}_{song}_rating',
 			f'{neighbor.name}_{song}_rating',
 			f'{user.name}_{song}_time',
