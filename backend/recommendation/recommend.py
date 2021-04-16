@@ -287,6 +287,8 @@ class Recommender:
 		logger.debug(
 			f'User (neighbor) song dissimilarity: {dists[0]} ({dists[1]})')
 		num = sum(biases * ratings)
+		# TODO(rdt17) Modify to use similarity since this could result in a
+		#  divide-by-zero error in the edge case that dists are both 0
 		den = sum(biases * dists)
 		rating = num / den
 		logger.debug(
