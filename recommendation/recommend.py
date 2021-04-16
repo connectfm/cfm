@@ -148,18 +148,16 @@ class Recommender:
 	async def get_neighbors(user: User) -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
 		logger.info(f'Finding the neighbors of user {user.name}')
-		geolocation = {
-			user.lat_key: user.lat,
-			user.long_key: user.long,
-			user.rad_key: user.rad}
+		geolocation = (user.long, user.lat, user.rad)
 		if not all(geolocation):
+			keys = (user.long_key, user.lat_key, user.rad_key)
 			logger.warning(
 				f'Unable to find all geolocation attributes of user'
 				f' {user.name}: '
-				f'{[k for k, v in geolocation.items() if v is None]}')
+				f'{[k for k, g in zip(keys, geolocation) if g is None]}')
 			ne = []
 		else:
-			ne = redis.georadius(user.name, *geolocation.values())
+			ne = redis.georadius(user.name, *geolocation)
 			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
 		return np.array(ne)
 
@@ -168,8 +166,7 @@ class Recommender:
 		"""Returns the taste vectors of one or more users."""
 		logger.info(f'Retrieving the music tastes of {len(users)} neighbors')
 		tastes = redis.mget(*(User.as_taste_key(u) for u in users))
-		missing = [t for t in tastes if t is None]
-		if missing:
+		if missing := [t for t in tastes if t is None]:
 			logger.warning(
 				f'Unable to find tastes for {len(missing)} users: {missing}')
 			logger.warning('Filtering out neighbors with missing tastes')
