@@ -1,15 +1,14 @@
+import aioredis
+import attr
 import datetime
 import logging
 import numbers
+import numpy as np
 import random
+from scipy.spatial import distance
 from typing import Any, Callable, NoReturn, Tuple
 
-import aioredis
-import attr
-import numpy as np
-from scipy.spatial import distance
-
-from recommendation import exceptions
+from backend.recommendation import exceptions
 
 _NOW = datetime.datetime.utcnow()
 _DAY_IN_SECS = 86_400
@@ -203,7 +202,7 @@ class Recommender:
 		sd = np.round(np.std(probs), 3)
 		logger.debug(f'Mean (sd) probability: {mean} ({sd})')
 		if with_index:
-			population = np.vstack((np.arange(len(population)), population)).T
+			population = np.vstack((np.arange(population.size), population)).T
 			idx_and_sample = self._rng.choice(population, p=probs)
 			idx, sample = idx_and_sample[0], idx_and_sample[1:]
 			sample = sample.item() if sample.shape == (1,) else sample
@@ -237,15 +236,19 @@ class Recommender:
 				f'Unable to find the number of clusters. Using '
 				f'{_DEFAULT_NUM_CLUSTERS}')
 			n_clusters = _DEFAULT_NUM_CLUSTERS
-		c_ratings = np.zeros(n_clusters)
+		c_ratings, n_per_cluster = np.zeros(n_clusters), np.zeros(n_clusters)
 		idx = 0
 		async for cluster in redis.iscan('cluster_*'):
 			async for song in redis.sscan(f'cluster_{cluster}'):
 				rating = self.adj_rating(user, neighbor, song)
 				c_ratings[idx] += rating
+				n_per_cluster[idx] += 1
 			idx += 1
-		logger.debug(f'Number of clusters: {np.flatnonzero(c_ratings).size}')
-		logger.debug(f'Number of songs in all clusters: {idx}')
+		c_ratings = c_ratings[np.flatnonzero(c_ratings)]
+		n_per_cluster = n_per_cluster[np.flatnonzero(n_per_cluster)]
+		logger.debug(f'Number of clusters: {idx}')
+		logger.debug(f'Number of songs in all clusters: {sum(n_per_cluster)}')
+		logger.debug(f'Number of songs per cluster: {n_per_cluster}')
 		cluster = self.sample(np.arange(n_clusters), c_ratings)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
