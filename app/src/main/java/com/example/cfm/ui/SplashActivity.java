@@ -1,4 +1,4 @@
-package com.example.cfm;
+package com.example.cfm.ui;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
@@ -8,43 +8,27 @@ import android.Manifest;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.provider.Settings;
-import android.util.Log;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 
-import com.android.volley.RequestQueue;
-import com.android.volley.toolbox.Volley;
-import com.example.spotify_framework.User;
-import com.example.spotify_framework.UserService;
+import com.example.cfm.R;
 import com.fonfon.geohash.GeoHash;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.gms.tasks.OnSuccessListener;
-import com.spotify.sdk.android.auth.AuthorizationClient;
-import com.spotify.sdk.android.auth.AuthorizationRequest;
-import com.spotify.sdk.android.auth.AuthorizationResponse;
-
-import java.util.Map;
 
 public class SplashActivity extends AppCompatActivity {
-    //Spotify Authorization fields
-    private SharedPreferences.Editor editor;
-    private SharedPreferences preferences;
 
-    private RequestQueue queue;
-
-    private static final String clientId = "9db9499ad1554b70b6942e9e3f3495e3";
-    private static final String redirectUri = "https://example.com/callback/";
-    private static final String[] scopes = new String[]{"user-read-email", "user-library-modify" , "user-read-email" , "user-read-private"};
-    private static final int reqCode = 0x10;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,9 +38,7 @@ public class SplashActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_splash);
 
-        UserService.authenticateSpotify(clientId, redirectUri,reqCode,scopes,this);
-        preferences = this.getSharedPreferences("SPOTIFY", 0);
-        queue = Volley.newRequestQueue(this);
+        startAnimation();
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -65,57 +47,6 @@ public class SplashActivity extends AppCompatActivity {
         super.onResume();
         System.out.println("resumed the thing");
         locationTest();
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
-        super.onActivityResult(requestCode,resultCode,intent);
-
-        if(requestCode == reqCode){
-            AuthorizationResponse response = AuthorizationClient.getResponse(resultCode,intent);
-
-            switch(response.getType()) {
-                case TOKEN : {
-                    editor = getSharedPreferences("SPOTIFY",0).edit();
-                    editor.putString("token", response.getAccessToken());
-                    Map prefs = getSharedPreferences("SPOTIFY",0).getAll();
-                    for(Object x : prefs.keySet().toArray()) {
-                        Log.d("Prefs",x + ": " + prefs.get(x));
-                    }
-                    Log.d("STARTING", "AUTH TOKEN "+ response.getAccessToken());
-                    editor.apply();
-                    waitForUserInfo();
-                    break;
-                }
-
-                case ERROR : {
-                    Log.e("ERROR:", response.getError());
-                }
-
-                default :
-                    Log.d(response.getType() + ": ", response.toString());
-                    onActivityResult(requestCode,resultCode,intent);
-            }
-        }
-    }
-
-    private void waitForUserInfo() {
-        UserService userService = new UserService(queue, preferences);
-        userService.get(() -> {
-            User user = userService.getUser();
-            editor = getSharedPreferences("SPOTIFY", 0).edit();
-            editor.putString("userid", user.id);
-            editor.putString("displayName", user.display_name);
-            editor.putString("country", user.country);
-            Log.d("STARTING", "GOT USER INFORMATION");
-            // We use commit instead of apply because we need the information stored immediately
-            editor.commit();
-            startMainActivity();
-        });
-    }
-    private void startMainActivity() {
-        Intent intent = new Intent(SplashActivity.this, MainActivity.class);
-        startActivity(intent);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -171,4 +102,48 @@ public class SplashActivity extends AppCompatActivity {
             System.out.println("damn");
         }
     }
+
+    private void startAnimation(){
+        Animation anim = AnimationUtils.loadAnimation(this, R.anim.fade);
+        anim.reset();
+        LinearLayout l = (LinearLayout)findViewById(R.id.lin_layout);
+        l.clearAnimation();
+        l.startAnimation(anim);
+
+        anim = AnimationUtils.loadAnimation(this, R.anim.translate);
+        anim.reset();
+        ImageView iv = (ImageView)findViewById(R.id.splash);
+        iv.clearAnimation();
+        iv.startAnimation(anim);
+
+        Thread splashTread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    int waited = 0;
+                    // Splash screen pause time
+                    while (waited < 1500) {
+                        sleep(200);
+                        waited += 200;
+                    }
+
+                    overridePendingTransition(R.anim.pull_from_bottom, R.anim.wait);
+
+                    startLoginActivity();
+                } catch (InterruptedException e) {
+                    // do nothing
+                } finally {
+                    SplashActivity.this.finish();
+                }
+
+            }
+        };
+        splashTread.start();
+    }
+
+    private void startLoginActivity() {
+        Intent intent = new Intent(SplashActivity.this, LoginActivity.class);
+        startActivity(intent);
+    }
+
 }

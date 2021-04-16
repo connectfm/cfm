@@ -52,7 +52,7 @@ public class PlaylistFragment extends Fragment {
             }
         });
         //observes if there are any modifications to the select list and automatically performs onChanged
-        RecyclerView rView = root.findViewById(R.id.plist_recycler);
+        RecyclerView rView = root.findViewById(R.id.listening_history);
         adapter = new PlaylistAdapter(this.getContext(), new ArrayList());
         rView.setAdapter(adapter);
         rView.setLayoutManager(new LinearLayoutManager(this.getContext()));
