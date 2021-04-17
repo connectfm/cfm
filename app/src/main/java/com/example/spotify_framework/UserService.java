@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.util.Log;
 
 import com.android.volley.AuthFailureError;
+import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.google.gson.Gson;
@@ -32,7 +33,7 @@ public class UserService {
     }
 
     public void get(final VolleyCallBack callBack) {
-        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(ENDPOINT, null, response -> {
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET,ENDPOINT, null, response -> {
             Gson gson = new Gson();
             Log.d("User Response",response.toString());
             user = gson.fromJson(response.toString(), User.class);
@@ -42,8 +43,8 @@ public class UserService {
         })) {
             @Override
             public Map<String, String> getHeaders() throws AuthFailureError {
-                Map<String, String> headers = new HashMap<>();
-                String token = preferences.getString("token", "");
+                Map<String, String> headers = new HashMap<String, String>();
+                String token = preferences.getString("TOKEN", "");
                 String auth = "Bearer " + token;
                 headers.put("Authorization", auth);
                 return headers;
@@ -52,15 +53,6 @@ public class UserService {
         queue.add(jsonObjectRequest);
     }
 
-    public static void authenticateSpotify(String clientId, String redirectUri, int reqCode, String[] scopes, Context context) {
-        AuthorizationRequest.Builder builder = new AuthorizationRequest.Builder(
-                clientId,
-                AuthorizationResponse.Type.TOKEN,
-                redirectUri);
 
-        builder.setScopes(scopes);
-        AuthorizationRequest request = builder.build();
-        AuthorizationClient.openLoginActivity((Activity) context,reqCode,request);
-    }
 
 }
