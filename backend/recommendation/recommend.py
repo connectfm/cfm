@@ -1,12 +1,13 @@
-import aioredis
-import attr
 import datetime
 import logging
 import numbers
-import numpy as np
 import random
-from scipy.spatial import distance
 from typing import Any, Callable, NoReturn, Tuple
+
+import aioredis
+import attr
+import numpy as np
+from scipy.spatial import distance
 
 from backend.recommendation import exceptions
 
@@ -206,8 +207,8 @@ class Recommender:
 			idx_and_sample = self._rng.choice(population, p=probs)
 			idx, sample = idx_and_sample[0], idx_and_sample[1:]
 			sample = sample.item() if sample.shape == (1,) else sample
-			sample = (sample, idx)
 			logger.debug(f'Sampled element (index): {sample} ({idx})')
+			sample = (sample, idx)
 		else:
 			sample = self._rng.choice(population, p=probs)
 			logger.debug(f'Sampled element: {sample}')
@@ -264,6 +265,10 @@ class Recommender:
 			r = np.where(r > _NEUTRAL_RATING, np.exp(-t) + _NEUTRAL_RATING, r)
 			return r
 
+		def _print(x, label, d=3):
+			u, n = round(x[0], d), round(x[1], d)
+			return f'User (neighbor) {label}: {u} ({n})'
+
 		logger.debug('Retrieving song features, ratings, and timestamps')
 		features, u_rating, ne_rating, u_time, ne_time = await redis.mget(
 			f'song_{song}',
@@ -273,24 +278,18 @@ class Recommender:
 			f'{neighbor.name}_{song}_time')
 		logger.debug('Retrieved song features, ratings, and timestamps')
 		ratings = np.array([u_rating, ne_rating])
-		logger.debug(f'User (neighbor) ratings: {ratings[0]} ({ratings[1]})')
+		logger.debug(_print(ratings, 'rating'))
 		deltas = np.array([self.delta(u_time), self.delta(ne_time)])
-		logger.debug(f'User (neighbor) time deltas: {deltas[0]} ({deltas[1]})')
+		logger.debug(_print(deltas, 'time delta'))
 		ratings = capacitive(ratings, deltas)
-		logger.debug(
-			f'User (neighbor) capacitive ratings: {ratings[0]} ({ratings[1]})')
+		logger.debug(_print(ratings, 'capacitive rating'))
 		biases = np.array([user.bias, 1 - user.bias])
-		logger.debug(f'User (neighbor) biases: {biases[0]} ({biases[1]})')
-		dists = np.array([
-			self._metric(user.taste, features),
-			self._metric(neighbor.taste, features)])
-		logger.debug(
-			f'User (neighbor) song dissimilarity: {dists[0]} ({dists[1]})')
-		num = sum(biases * ratings)
-		# TODO(rdt17) Modify to use similarity since this could result in a
-		#  divide-by-zero error in the edge case that dists are both 0
-		den = sum(biases * dists)
-		rating = num / den
+		logger.debug(_print(biases, 'bias'))
+		similarity = np.array([
+			1 / (1 + self._metric(user.taste, features)),
+			1 / (1 + self._metric(neighbor.taste, features))])
+		logger.debug(_print(similarity, 'similarity'))
+		rating = sum(biases * ratings) * sum(biases * similarity)
 		logger.debug(
 			f'Adjusted rating of user {user.name}: {round(rating, 3)}')
 		return rating
