@@ -234,15 +234,15 @@ class Recommender:
 	async def sample_cluster(self, user: User, neighbor: User) -> int:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommend a song')
-		n_clusters, c_ratings = self.get_cached_clusters(user, neighbor)
-		if not c_ratings:
-			c_ratings = self.compute_cluster(user, neighbor, n_clusters)
-		cluster = self.sample(np.arange(n_clusters), c_ratings)
+		n_clusters, c_rates = self.get_all_cached_ratings(user, neighbor)
+		if not c_rates:
+			c_rates = self.compute_cluster_ratings(user, neighbor, n_clusters)
+		cluster = self.sample(np.arange(n_clusters), c_rates)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
 
 	@staticmethod
-	async def get_cached_clusters(user: User, neighbor: User) -> Tuple:
+	async def get_all_cached_ratings(user: User, neighbor: User) -> Tuple:
 		if n_clusters := await redis.get('n_clusters'):
 			logger.info(f'Using cached number of clusters: {n_clusters}')
 			n_clusters = int(n_clusters)
@@ -262,7 +262,7 @@ class Recommender:
 					f'{(n_clusters := n_ratings)} number of clusters')
 		return n_clusters, c_ratings
 
-	async def compute_cluster(
+	async def compute_cluster_ratings(
 			self, user: User, neighbor: User, n_clusters: int) -> np.ndarray:
 		c_ratings, per_cluster = np.zeros(n_clusters), np.zeros(n_clusters)
 		idx = 0
