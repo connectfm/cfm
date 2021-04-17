@@ -348,7 +348,7 @@ class Recommender:
 	@staticmethod
 	async def get_cached_ratings(
 			user: User, neighbor: User, cluster: int) -> Tuple:
-		if ratings := await redis.get(user.as_cluster_key(user, cluster)):
+		if ratings := await redis.get(user.as_cluster_key(neighbor, cluster)):
 			logger.info(
 				f'Using cached song ratings for cluster {cluster} between '
 				f'user {user.name} and neighbor {neighbor.name}')
@@ -378,7 +378,7 @@ class Recommender:
 		logger.info(
 			f'Caching the ratings for cluster {cluster} between user '
 			f'{user.name} and neighbor {neighbor.name}')
-		key = user.as_cluster_key(user, cluster)
+		key = user.as_cluster_key(neighbor, cluster)
 		ratings = mp.packb(ratings)
 		result = await redis.set(key, ratings, expire=_DAY_IN_SECS)
 		self.log_cache_event(result, 'the ratings', _DAY_IN_SECS)
