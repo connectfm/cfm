@@ -265,7 +265,7 @@ class Recommender:
 			r = np.where(r > _NEUTRAL_RATING, np.exp(-t) + _NEUTRAL_RATING, r)
 			return r
 
-		def _print(x, label, d=3):
+		def _format(x, label, d=3):
 			u, n = round(x[0], d), round(x[1], d)
 			return f'User (neighbor) {label}: {u} ({n})'
 
@@ -278,17 +278,17 @@ class Recommender:
 			f'{neighbor.name}_{song}_time')
 		logger.debug('Retrieved song features, ratings, and timestamps')
 		ratings = np.array([u_rating, ne_rating])
-		logger.debug(_print(ratings, 'rating'))
+		logger.debug(_format(ratings, 'rating'))
 		deltas = np.array([self.delta(u_time), self.delta(ne_time)])
-		logger.debug(_print(deltas, 'time delta'))
+		logger.debug(_format(deltas, 'time delta'))
 		ratings = capacitive(ratings, deltas)
-		logger.debug(_print(ratings, 'capacitive rating'))
+		logger.debug(_format(ratings, 'capacitive rating'))
 		biases = np.array([user.bias, 1 - user.bias])
-		logger.debug(_print(biases, 'bias'))
+		logger.debug(_format(biases, 'bias'))
 		similarity = np.array([
 			1 / (1 + self._metric(user.taste, features)),
 			1 / (1 + self._metric(neighbor.taste, features))])
-		logger.debug(_print(similarity, 'similarity'))
+		logger.debug(_format(similarity, 'similarity'))
 		rating = sum(biases * ratings) * sum(biases * similarity)
 		logger.debug(
 			f'Adjusted rating of user {user.name}: {round(rating, 3)}')
