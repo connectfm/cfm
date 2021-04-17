@@ -224,35 +224,9 @@ class Recommender:
 		"""Returns a song based on user and neighbor contexts."""
 		cluster = await self.sample_cluster(user, neighbor)
 		logger.info(f'Sampling a song to recommend')
-		cluster_key = user.as_cluster_key(user, cluster)
-		if ratings := await redis.get(cluster_key):
-			logger.info(
-				f'Using cached song ratings for cluster {cluster} between '
-				f'user {user.name} and neighbor {neighbor.name}')
-			ratings: np.ndarray = mp.unpackb(ratings)
-			songs = np.array(list(await redis.smembers(f'cluster_{cluster}')))
-			if (n_ratings := ratings.size) != (n_songs := songs.size):
-				trunc = min(n_ratings, n_songs)
-				songs, ratings = songs[trunc], ratings[trunc]
-				logger.warning(
-					f'Number of ratings ({n_ratings}) does not equal the '
-					f'number of songs ({n_songs}). Using the first {trunc} '
-					f'songs and ratings')
-		else:
-			songs, ratings = [], []
-			idx = 0
-			async for song in redis.sscan(f'cluster_{cluster}'):
-				rating = self.adj_rating(user, neighbor, song)
-				songs[idx], ratings[idx] = song, rating
-				idx += 1
-			logger.debug(f'Number of songs in cluster {cluster}: {idx}')
-			songs, ratings = np.array(songs), np.array(ratings)
-			logger.info(
-				f'Caching the ratings for cluster {cluster} between user '
-				f'{user.name} and neighbor {neighbor.name}')
-			ratings = mp.packb(ratings)
-			result = await redis.set(cluster_key, ratings, expire=_DAY_IN_SECS)
-			self.log_cache_event(result, 'the ratings', _DAY_IN_SECS)
+		songs, ratings = self.get_cached_ratings(user, neighbor, cluster)
+		if not all((songs, ratings)):
+			songs, ratings = self.compute_song_ratings(user, neighbor, cluster)
 		song = self.sample(songs, ratings)
 		logger.info(f'Sampled song {song}')
 		return song
@@ -260,7 +234,15 @@ class Recommender:
 	async def sample_cluster(self, user: User, neighbor: User) -> int:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommend a song')
-		ratings_key = user.as_clusters_key(neighbor)
+		n_clusters, c_ratings = self.get_cached_clusters(user, neighbor)
+		if not c_ratings:
+			c_ratings = self.compute_cluster(user, neighbor, n_clusters)
+		cluster = self.sample(np.arange(n_clusters), c_ratings)
+		logger.info(f'Sampled cluster {cluster}')
+		return cluster
+
+	@staticmethod
+	async def get_cached_clusters(user: User, neighbor: User) -> Tuple:
 		if n_clusters := await redis.get('n_clusters'):
 			logger.info(f'Using cached number of clusters: {n_clusters}')
 			n_clusters = int(n_clusters)
@@ -268,7 +250,7 @@ class Recommender:
 			logger.warning(
 				f'Unable to find the number of clusters. Using '
 				f'{(n_clusters := _DEFAULT_NUM_CLUSTERS)}')
-		if c_ratings := await redis.get(ratings_key):
+		if c_ratings := await redis.get(user.as_clusters_key(neighbor)):
 			logger.info(
 				f'Using cached cluster ratings between user {user.name} and '
 				f'neighbor {neighbor.name}')
@@ -278,33 +260,31 @@ class Recommender:
 					f'Cached number of clusters ({n_clusters}) and number of '
 					f'cluster ratings ({n_ratings}) do not match. Using '
 					f'{(n_clusters := n_ratings)} number of clusters')
-		else:
-			c_ratings, per_cluster = np.zeros(n_clusters), np.zeros(n_clusters)
-			idx = 0
-			async for cluster in redis.iscan('cluster_*'):
-				async for song in redis.sscan(f'cluster_{cluster}'):
-					rating = self.adj_rating(user, neighbor, song)
-					c_ratings[idx] += rating
-					per_cluster[idx] += 1
-				idx += 1
-			c_ratings = c_ratings[np.flatnonzero(c_ratings)]
-			per_cluster = per_cluster[np.flatnonzero(per_cluster)]
-			logger.debug(f'Number of clusters: {idx}')
-			logger.debug(f'Number of songs in clusters: {sum(per_cluster)}')
-			logger.debug(f'Number of songs per cluster: {per_cluster}')
-			logger.info(f'Caching number of clusters: {idx}')
-			# TODO(rdt17) Use https://redis.io/topics/distlock
-			result = await redis.set('n_clusters', idx, expire=_DAY_IN_SECS)
-			self.log_cache_event(
-				result, 'the number of clusters', _DAY_IN_SECS)
-			logger.info(f'Caching cluster ratings: {c_ratings}')
-			c_ratings = mp.packb(c_ratings)
-			result = await redis.set(
-				ratings_key, c_ratings, expire=_DAY_IN_SECS)
-			self.log_cache_event(result, 'cluster ratings', _DAY_IN_SECS)
-		cluster = self.sample(np.arange(n_clusters), c_ratings)
-		logger.info(f'Sampled cluster {cluster}')
-		return cluster
+		return n_clusters, c_ratings
+
+	async def compute_cluster(
+			self, user: User, neighbor: User, n_clusters: int) -> np.ndarray:
+		c_ratings, per_cluster = np.zeros(n_clusters), np.zeros(n_clusters)
+		idx = 0
+		async for cluster in redis.iscan('cluster_*'):
+			async for song in redis.sscan(f'cluster_{cluster}'):
+				rating = self.adj_rating(user, neighbor, song)
+				c_ratings[idx] += rating
+				per_cluster[idx] += 1
+			idx += 1
+		c_ratings = c_ratings[np.flatnonzero(c_ratings)]
+		per_cluster = per_cluster[np.flatnonzero(per_cluster)]
+		logger.debug(f'Number of clusters: {idx}')
+		logger.debug(f'Number of songs in clusters: {sum(per_cluster)}')
+		logger.debug(f'Number of songs per cluster: {per_cluster}')
+		logger.info(f'Caching number of clusters: {idx}')
+		result = await redis.set('n_clusters', idx)
+		self.log_cache_event(result, 'the number of clusters')
+		logger.info(f'Caching cluster ratings: {c_ratings}')
+		key = user.as_clusters_key(neighbor)
+		result = await redis.set(key, mp.packb(c_ratings), expire=_DAY_IN_SECS)
+		self.log_cache_event(result, 'cluster ratings', _DAY_IN_SECS)
+		return c_ratings
 
 	def adj_rating(self, user: User, neighbor: User, song: str) -> int:
 		"""Computes a context-based adjusted rating of a song."""
@@ -356,8 +336,50 @@ class Recommender:
 		return delta
 
 	@staticmethod
-	def log_cache_event(result: bool, name: str, expire: int):
+	def log_cache_event(result: bool, name: str, expire: int = None):
 		if result:
-			logger.info(f'Successfully cached {name} for {expire} seconds')
+			if expire is None:
+				logger.info(f'Successfully cached {name} without expiration')
+			else:
+				logger.info(f'Successfully cached {name} for {expire} seconds')
 		else:
 			logger.warning(f'Failed to cache {name}')
+
+	@staticmethod
+	async def get_cached_ratings(
+			user: User, neighbor: User, cluster: int) -> Tuple:
+		if ratings := await redis.get(user.as_cluster_key(user, cluster)):
+			logger.info(
+				f'Using cached song ratings for cluster {cluster} between '
+				f'user {user.name} and neighbor {neighbor.name}')
+			ratings: np.ndarray = mp.unpackb(ratings)
+			songs = np.array(list(await redis.smembers(f'cluster_{cluster}')))
+			if (n_ratings := ratings.size) != (n_songs := songs.size):
+				trunc = min(n_ratings, n_songs)
+				songs, ratings = songs[trunc], ratings[trunc]
+				logger.warning(
+					f'Number of ratings ({n_ratings}) does not equal the '
+					f'number of songs ({n_songs}). Using the first {trunc} '
+					f'songs and ratings')
+		else:
+			songs, ratings = None, None
+		return songs, ratings
+
+	async def compute_song_ratings(
+			self, user: User, neighbor: User, cluster: int) -> Tuple:
+		songs, ratings = [], []
+		idx = 0
+		async for song in redis.sscan(f'cluster_{cluster}'):
+			rating = self.adj_rating(user, neighbor, song)
+			songs[idx], ratings[idx] = song, rating
+			idx += 1
+		logger.debug(f'Number of songs in cluster {cluster}: {idx}')
+		songs, ratings = np.array(songs), np.array(ratings)
+		logger.info(
+			f'Caching the ratings for cluster {cluster} between user '
+			f'{user.name} and neighbor {neighbor.name}')
+		key = user.as_cluster_key(user, cluster)
+		ratings = mp.packb(ratings)
+		result = await redis.set(key, ratings, expire=_DAY_IN_SECS)
+		self.log_cache_event(result, 'the ratings', _DAY_IN_SECS)
+		return songs, ratings
