@@ -26,6 +26,8 @@ com/example/cfm/FirstFragment.java
 com/example/cfm/SecondFragment.java
  com.example.cfm.SecondFragment
  com.example.cfm.SecondFragment$1
+com/example/cfm/ui/SongFragment.java
+ com.example.cfm.ui.SongFragment
 com/example/cfm/ui/home/HomeFragment.java
  com.example.cfm.ui.home.HomeFragment
  com.example.cfm.ui.home.HomeFragment$1
@@ -48,7 +50,6 @@ com/example/cfm/BuildConfig.java
 com/example/cfm/SplashActivity.java
  com.example.cfm.SplashActivity
  com.example.cfm.SplashActivity$1
- com.example.cfm.SplashActivity$2
 com/example/cfm/MainActivity.java
  com.example.cfm.MainActivity
  com.example.cfm.MainActivity$1

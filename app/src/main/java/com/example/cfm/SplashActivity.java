@@ -11,6 +11,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
@@ -120,33 +121,23 @@ public class SplashActivity extends AppCompatActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.M)
     private void locationTest() {
-        FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(this);
-        System.out.println("permissions status: " + ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION));
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            System.out.println("mango smoothie");
-            checkPermissions(AppOpsManager.OPSTR_COARSE_LOCATION, Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+        LocationManager lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+
+        Location gps_loc = null;
+        Location net_loc = null;
+        Location fin_loc;
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED)
+            return;
+        try {
+            gps_loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            net_loc = lm.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        } catch (Exception e) {
+            System.out.println("crap");
+            e.printStackTrace();
         }
-        /*client.getCurrentLocation(102, null).addOnSuccessListener(this, new OnSuccessListener<Location>() {
-            @Override
-            public void onSuccess(Location location) {printLocation(location);}
-        });*/
-        LocationRequest lr = LocationRequest.create();
-        lr.setInterval(500)
-                .setFastestInterval(0)
-                .setMaxWaitTime(0)
-                .setSmallestDisplacement(0)
-                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        client.requestLocationUpdates(lr, new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) {
-                    return;
-                }
-                for (Location location : locationResult.getLocations()) {
-                    printLocation(location);
-                }
-            }
-        }, Looper.getMainLooper());
+        System.out.println("valorant");
+        System.out.println(gps_loc);
+        System.out.println(net_loc);
 
     }
 
