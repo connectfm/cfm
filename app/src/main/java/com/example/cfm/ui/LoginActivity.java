@@ -8,6 +8,7 @@ import android.os.Bundle;
 
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
+import com.example.spotify_framework.SongService;
 import com.example.spotify_framework.User;
 import com.example.spotify_framework.UserService;
 
@@ -28,12 +29,15 @@ public class LoginActivity extends AppCompatActivity {
 
     private SharedPreferences.Editor editor;
     private SharedPreferences preferences;
-
     private RequestQueue queue;
-
     private static final String clientId = "9db9499ad1554b70b6942e9e3f3495e3";
     private static final String redirectUri = "https://example.com/callback/";
-    private static final String[] scopes = new String[]{"user-read-email", "user-library-modify" , "user-read-email" , "user-read-private"};
+    private static final String[] scopes = new String[]{
+            "user-read-email",
+            "user-library-modify" ,
+            "user-read-email" ,
+            "user-read-private",
+            "user-read-recently-played"};
     private static final int reqCode = 0x10;
     private static final String TAG = "Spotify " + LoginActivity.class.getSimpleName();
 
@@ -104,14 +108,6 @@ public class LoginActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void openLoginWindow() {
-        AuthorizationRequest.Builder builder = new AuthorizationRequest.Builder(clientId, AuthorizationResponse.Type.TOKEN,redirectUri);
-        builder.setScopes(new String[]{"user-read-private", "streaming", "user-top-read", "user-read-recently-played"});
-        AuthorizationRequest request = builder.build();
-
-        AuthorizationClient.openLoginActivity(this, reqCode, request);
-    }
-
     private void authenticateSpotify(String clientId, String redirectUri, int reqCode, String[] scopes) {
         AuthorizationRequest.Builder builder = new AuthorizationRequest.Builder(
                 clientId,
@@ -122,5 +118,4 @@ public class LoginActivity extends AppCompatActivity {
         AuthorizationRequest request = builder.build();
         AuthorizationClient.openLoginActivity(this,reqCode,request);
     }
-
 }
