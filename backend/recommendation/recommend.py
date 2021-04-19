@@ -268,7 +268,7 @@ class Recommender:
 		idx = 0
 		async for cluster in redis.iscan('cluster_*'):
 			async for song in redis.sscan(f'cluster_{cluster}'):
-				rating = self.adj_rating(user, neighbor, song)
+				rating = await self.adj_rating(user, neighbor, song)
 				c_ratings[idx] += rating
 				per_cluster[idx] += 1
 			idx += 1
@@ -286,7 +286,7 @@ class Recommender:
 		self.log_cache_event(result, 'cluster ratings', _DAY_IN_SECS)
 		return c_ratings
 
-	def adj_rating(self, user: User, neighbor: User, song: str) -> int:
+	async def adj_rating(self, user: User, neighbor: User, song: str) -> int:
 		"""Computes a context-based adjusted rating of a song."""
 		logger.debug(
 			f'Computing the adjusted rating of {song} based on user '
