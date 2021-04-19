@@ -1,6 +1,5 @@
-package com.example.cfm.ui.home;
+package ui.home;
 
-import android.content.Context;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -12,8 +11,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cfm.R;
 import com.example.spotify_framework.Song;
 import com.example.spotify_framework.SongService;
-
-import org.w3c.dom.Text;
 
 import java.util.Collections;
 import java.util.List;

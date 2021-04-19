@@ -9,7 +9,7 @@
     android:layout_gravity="center"
     android:id="@+id/lin_layout"
     android:gravity="center"
-    tools:context=".ui.SplashActivity">
+    tools:context="ui.SplashActivity">
 
     <ImageView
         android:id="@+id/splash"

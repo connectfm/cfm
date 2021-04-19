@@ -1,4 +1,4 @@
-package com.example.cfm.ui.notifications;
+package ui.notifications;
 
 import android.content.Intent;
 import android.os.Bundle;

@@ -1,11 +1,11 @@
-package com.example.cfm.ui.notifications;
+package ui.notifications;
 
 import android.app.Application;
 
 import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModel;
 
-import com.example.cfm.ui.databases.PlaylistRepo;
+import ui.databases.PlaylistRepo;
 import com.example.spotify_framework.Playlist;
 
 import java.util.List;

@@ -1,4 +1,4 @@
-package com.example.spotify_framework;
+package spotify_framework;
 
 import com.android.volley.Request;
 import com.android.volley.toolbox.JsonObjectRequest;

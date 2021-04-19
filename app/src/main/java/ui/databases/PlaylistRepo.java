@@ -1,4 +1,4 @@
-package com.example.cfm.ui.databases;
+package ui.databases;
 
 import android.app.Application;
 

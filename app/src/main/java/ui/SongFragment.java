@@ -1,4 +1,4 @@
-package com.example.cfm.ui;
+package ui;
 
 import android.os.Bundle;
 

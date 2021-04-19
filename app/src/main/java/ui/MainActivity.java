@@ -1,15 +1,9 @@
-package com.example.cfm.ui;
+package ui;
 
-import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
 
 import android.content.SharedPreferences;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
 
 
 import com.example.cfm.R;
