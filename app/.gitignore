@@ -31,8 +31,12 @@ captures/
 output.json
 spotify-auth/
 app/builds/output/logs
+<<<<<<< Updated upstream
 .gradle
 !build.gradle
+=======
+/source-classes-mapping.txt
+>>>>>>> Stashed changes
     
 #NDK
 obj/
