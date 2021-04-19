@@ -32,6 +32,7 @@ output.json
 spotify-auth/
 app/builds/output/logs
 .gradle
+!build.gradle
     
 #NDK
 obj/

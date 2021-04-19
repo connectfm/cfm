@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".ui.notifications.PlaylistFragment">
+    tools:context="ui.notifications.PlaylistFragment">
 
     <TextView
         android:id="@+id/text_notifications"
@@ -21,7 +21,7 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/plist_recycler"
+        android:id="@+id/listening_history"
         android:layout_width="365dp"
         android:layout_height="419dp"
         app:layout_constraintEnd_toEndOf="parent"
@@ -32,7 +32,8 @@
         android:id="@+id/new_playlist"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Create New Playlist"
-        app:layout_constraintTop_toBottomOf="@+id/plist_recycler"
-        tools:layout_editor_absoluteX="167dp" />
+        android:text="Start Radio"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/listening_history" />
 </androidx.constraintlayout.widget.ConstraintLayout>
