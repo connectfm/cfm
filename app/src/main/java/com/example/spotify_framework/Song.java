@@ -3,19 +3,20 @@ package com.example.spotify_framework;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class Song {
     private String id;
     private String uri;
-    private String title;
-    private String album;
-    private String album_image;
-    private long duration;
-    private String artist;
+    private String name;
+    private int duration;
+    private List<String> artistsList = new ArrayList<String>();
+    private List<String> albumImages = new ArrayList<String>();
     private String artist_id;
-    private boolean playing;
 
-    public Song(String id, String title) {
-        this.title = title;
+    public Song(String id, String name) {
+        this.name = name;
         this.id = id;
     }
 
@@ -23,11 +24,29 @@ public class Song {
         return id;
     }
 
-    public String getTitle() {
-        return title;
+    public String getName() {
+        return name;
     }
 
+    public List<String> getArtists() {return artistsList;}
+
+
     public void setTitle() {
-        this.title = title;
+        this.name = name;
     }
+
+    public List<String> getImages() {return albumImages;}
+
+    public void setImage(String image) {
+        if(albumImages == null)
+            albumImages = new ArrayList<String>();
+        albumImages.add(image);
+    }
+
+    public void setArtist(String artist) {
+        if(artistsList == null)
+            artistsList = new ArrayList<String>();
+        artistsList.add(artist);
+    }
+
 }

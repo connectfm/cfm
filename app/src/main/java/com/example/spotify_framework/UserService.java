@@ -33,17 +33,20 @@ public class UserService {
     }
 
     public void get(final VolleyCallBack callBack) {
-        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(Request.Method.GET,ENDPOINT, null, response -> {
-            Gson gson = new Gson();
-            Log.d("User Response",response.toString());
-            user = gson.fromJson(response.toString(), User.class);
-            callBack.onSuccess();
-        }, error -> get(() -> {
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+                Request.Method.GET,
+                ENDPOINT,
+                null,
+                response -> {
+                    Gson gson = new Gson();
+                    user = gson.fromJson(response.toString(), User.class);
+                    callBack.onSuccess();
+                    }, error -> get(() -> {
 
         })) {
             @Override
             public Map<String, String> getHeaders() throws AuthFailureError {
-                Map<String, String> headers = new HashMap<String, String>();
+                Map<String, String> headers = new HashMap<>();
                 String token = preferences.getString("TOKEN", "");
                 String auth = "Bearer " + token;
                 headers.put("Authorization", auth);

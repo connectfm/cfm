@@ -11,6 +11,7 @@ import android.os.Bundle;
 
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
+import com.example.spotify_framework.SongService;
 import com.example.spotify_framework.User;
 import com.example.spotify_framework.UserService;
 
@@ -31,6 +32,8 @@ import com.spotify.sdk.android.auth.AuthorizationClient;
 import com.spotify.sdk.android.auth.AuthorizationRequest;
 import com.spotify.sdk.android.auth.AuthorizationResponse;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.util.Map;
 
 import pub.devrel.easypermissions.EasyPermissions;
@@ -39,12 +42,15 @@ public class LoginActivity extends AppCompatActivity {
 
     private SharedPreferences.Editor editor;
     private SharedPreferences preferences;
-
     private RequestQueue queue;
-
     private static final String clientId = "9db9499ad1554b70b6942e9e3f3495e3";
     private static final String redirectUri = "https://example.com/callback/";
-    private static final String[] scopes = new String[]{"user-read-email", "user-library-modify" , "user-read-email" , "user-read-private"};
+    private static final String[] scopes = new String[]{
+            "user-read-email",
+            "user-library-modify" ,
+            "user-read-email" ,
+            "user-read-private",
+            "user-read-recently-played"};
     private static final int reqCode = 0x10;
     private static final String TAG = "Spotify " + LoginActivity.class.getSimpleName();
 
@@ -116,14 +122,6 @@ public class LoginActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    private void openLoginWindow() {
-        AuthorizationRequest.Builder builder = new AuthorizationRequest.Builder(clientId, AuthorizationResponse.Type.TOKEN,redirectUri);
-        builder.setScopes(new String[]{"user-read-private", "streaming", "user-top-read", "user-read-recently-played"});
-        AuthorizationRequest request = builder.build();
-
-        AuthorizationClient.openLoginActivity(this, reqCode, request);
-    }
-
     private void authenticateSpotify(String clientId, String redirectUri, int reqCode, String[] scopes) {
         AuthorizationRequest.Builder builder = new AuthorizationRequest.Builder(
                 clientId,
@@ -152,7 +150,7 @@ public class LoginActivity extends AppCompatActivity {
 
         LocationServices.getFusedLocationProviderClient(this).requestLocationUpdates(lr, new LocationCallback() {
             @Override
-            public void onLocationResult(LocationResult lr) {
+            public void onLocationResult(@NotNull LocationResult lr) {
                 super.onLocationResult(lr);
                 System.out.println("in the locationcallback");
                 if (lr != null && lr.getLocations().size() > 0) {
@@ -181,11 +179,10 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    public void onRequestPermissionsResult(int requestCode, @NotNull String[] permissions, @NotNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
         // Forward results to EasyPermissions
         EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
     }
-
 }

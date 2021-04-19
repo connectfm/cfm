@@ -22,15 +22,17 @@
         android:layout_height="136dp"
         app:layout_constraintTop_toBottomOf="@+id/plist_title"
         app:srcCompat="@android:drawable/ic_btn_speak_now"
-        tools:layout_editor_absoluteX="104dp" />
+        tools:layout_editor_absoluteX="35dp"
+        tools:ignore="MissingConstraints" />
 
     <TextView
         android:id="@+id/plist_liked_song_count"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="liked songs: "
-        tools:layout_editor_absoluteX="245dp"
-        tools:layout_editor_absoluteY="69dp" />
+        tools:layout_editor_absoluteX="206dp"
+        tools:layout_editor_absoluteY="69dp"
+        tools:ignore="MissingConstraints" />
 
     <TextView
         android:id="@+id/plist_disliked_songs_count"
@@ -38,6 +40,7 @@
         android:layout_height="wrap_content"
         android:text="disliked_songs"
         app:layout_constraintEnd_toEndOf="@+id/plist_liked_song_count"
+        app:layout_constraintHorizontal_bias="0.466"
         app:layout_constraintStart_toStartOf="@+id/plist_liked_song_count"
         app:layout_constraintTop_toBottomOf="@+id/plist_liked_song_count" />
 
@@ -45,6 +48,7 @@
         android:id="@+id/plist_description"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
         android:layout_marginTop="12dp"
         android:text="description of playlist"
         app:layout_constraintStart_toEndOf="@+id/plist_cover"
