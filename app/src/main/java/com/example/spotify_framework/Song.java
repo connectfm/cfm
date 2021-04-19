@@ -46,7 +46,7 @@ public class Song {
     public void setArtist(String artist) {
         if(artistsList == null)
             artistsList = new ArrayList<String>();
-        albumImages.add(artist);
+        artistsList.add(artist);
     }
 
 }

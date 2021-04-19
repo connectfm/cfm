@@ -9,6 +9,7 @@ import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
 import com.android.volley.Response;
+import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.gson.Gson;
@@ -51,28 +52,33 @@ public class SongService {
                 Request.Method.GET,
                 endpoint,
                 null,
-                response  -> {
-                    System.out.println("Playlist Response: " + response.toString());
-                    Gson gson = new Gson();
-                    JSONArray jsonArray = response.optJSONArray("items");
-                    for(int i = 0; i < jsonArray.length(); i++) {
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
                         try {
-                            JSONObject object = jsonArray.getJSONObject(i);
-                            object = object.optJSONObject("track");
-                            Log.d("Song Response: ", object.toString());
-                            populateSong(object.optString("id"), () -> {
-                                System.out.println(getSong().getName());
-                               playlist.add(getSong());
-                            });
+                            JSONArray jsonArray = response.optJSONArray("items");
+                            for (int i = 0; i < jsonArray.length(); i++) {
+                                JSONObject song = jsonArray.getJSONObject(i);
+                                Log.d("Song " + i + " JSON Script", song.toString());
+                                populateSong(song.optString("id"), new VolleyCallBack() {
+                                    @Override
+                                    public void onSuccess() {
+                                        playlist.add(getSong());
+                                    }
+                                });
+                            }
+                            callBack.onSuccess();
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
                     }
-
-                    callBack.onSuccess();
-                }, error -> getRecentlyPlayed(() -> {
-
-        })) {
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                 Log.e("Mistakes were made", error.getMessage());
+            }
+        })
+        {
             @Override
             public Map<String, String> getHeaders() throws AuthFailureError {
                 Map<String, String> headers = new HashMap<String, String>();
@@ -92,25 +98,30 @@ public class SongService {
                 Request.Method.GET,
                 endpoint,
                 null,
-                response -> {
-                    Song currentSong;
-                    Gson gson = new Gson();
-                    currentSong = gson.fromJson(response.toString(), Song.class);
-                    JSONObject object = response.optJSONObject("album");
-                    JSONArray images = object.optJSONArray("images");
-                    for(int i = 0 ; i < images.length(); i++) {
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
                         try {
-                            JSONObject pic = images.getJSONObject(i);
-                            currentSong.setImage(pic.optString("url"));
+                            Song currentSong;
+                            Gson gson = new Gson();
+                            currentSong = gson.fromJson(response.toString(), Song.class);
+                            JSONObject object = response.optJSONObject("album");
+                            JSONArray images = object.optJSONArray("images");
+                            for (int i = 0; i < images.length(); i++) {
+                                JSONObject pic = images.getJSONObject(i);
+                                currentSong.setImage(pic.optString("url"));
+                            }
+                            callBack.onSuccess();
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
                     }
-                    song = currentSong;
-                    callBack.onSuccess();
-                }, error -> populateSong(id, () -> {
-
-        })) {
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+                Log.e("Mistakes were made", error.getMessage());
+            }
+        }) {
             @Override
             public Map<String, String> getHeaders() throws AuthFailureError {
                 Map<String, String> headers = new HashMap<String, String>();
@@ -122,6 +133,7 @@ public class SongService {
         };
         queue.add(jsonObjectRequest);
     }
+
 
     public static ArrayList<Song> createSongs() {
         ArrayList<Song> songs = new ArrayList<Song>();
