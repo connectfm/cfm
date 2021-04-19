@@ -6,7 +6,7 @@ import androidx.lifecycle.LiveData;
 import androidx.lifecycle.ViewModel;
 
 import ui.databases.PlaylistRepo;
-import com.example.spotify_framework.Playlist;
+import spotify_framework.Playlist;
 
 import java.util.List;
 

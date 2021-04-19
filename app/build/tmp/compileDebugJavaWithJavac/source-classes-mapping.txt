@@ -1,71 +1,62 @@
-com/example/spotify_framework/User.java
- com.example.spotify_framework.User
-com/example/cfm/ui/dashboard/DashboardViewModel.java
- com.example.cfm.ui.dashboard.DashboardViewModel
-com/example/spotify_framework/UserService.java
- com.example.spotify_framework.UserService
- com.example.spotify_framework.UserService$1
-com/example/cfm/ui/dashboard/DashboardFragment.java
- com.example.cfm.ui.dashboard.DashboardFragment
- com.example.cfm.ui.dashboard.DashboardFragment$1
-com/example/spotify_framework/PlaybackService.java
- com.example.spotify_framework.PlaybackService
-com/example/spotify_framework/Playlist.java
- com.example.spotify_framework.Playlist
-com/example/spotify_framework/Genre.java
- com.example.spotify_framework.Genre
-com/example/cfm/ui/home/HomeViewModel.java
- com.example.cfm.ui.home.HomeViewModel
-com/example/spotify_framework/Song.java
- com.example.spotify_framework.Song
-com/example/cfm/FirstFragment.java
- com.example.cfm.FirstFragment
- com.example.cfm.FirstFragment$1
-com/example/cfm/SecondFragment.java
- com.example.cfm.SecondFragment
- com.example.cfm.SecondFragment$1
-com/example/cfm/ui/SplashActivity.java
- com.example.cfm.ui.SplashActivity
- com.example.cfm.ui.SplashActivity$1
-com/example/cfm/ui/LoginActivity.java
- com.example.cfm.ui.LoginActivity
- com.example.cfm.ui.LoginActivity$1
- com.example.cfm.ui.LoginActivity$2
-com/example/cfm/ui/SongFragment.java
- com.example.cfm.ui.SongFragment
-com/example/spotify_framework/VolleyCallBack.java
- com.example.spotify_framework.VolleyCallBack
-com/example/cfm/ui/notifications/PlaylistViewModel.java
- com.example.cfm.ui.notifications.PlaylistViewModel
-com/example/spotify_framework/SongService.java
- com.example.spotify_framework.SongService
- com.example.spotify_framework.SongService$1
- com.example.spotify_framework.SongService$1$1
- com.example.spotify_framework.SongService$2
- com.example.spotify_framework.SongService$3
- com.example.spotify_framework.SongService$4
- com.example.spotify_framework.SongService$5
- com.example.spotify_framework.SongService$6
-com/example/cfm/ui/MainActivity.java
- com.example.cfm.ui.MainActivity
-com/example/cfm/ui/databases/PlaylistRepo.java
- com.example.cfm.ui.databases.PlaylistRepo
-com/example/cfm/ui/home/SongsAdapter.java
- com.example.cfm.ui.home.SongsAdapter
- com.example.cfm.ui.home.SongsAdapter$ViewHolder
-com/example/cfm/ui/notifications/PlaylistAdapter.java
- com.example.cfm.ui.notifications.PlaylistAdapter
- com.example.cfm.ui.notifications.PlaylistAdapter$1
- com.example.cfm.ui.notifications.PlaylistAdapter$OnTaskItemClick
- com.example.cfm.ui.notifications.PlaylistAdapter$TaskViewHolder
+ui/dashboard/DashboardViewModel.java
+ ui.dashboard.DashboardViewModel
+ui/home/SongsAdapter.java
+ ui.home.SongsAdapter
+ ui.home.SongsAdapter$ViewHolder
+ui/MainActivity.java
+ ui.MainActivity
+ui/home/HomeViewModel.java
+ ui.home.HomeViewModel
+spotify_framework/PlaybackService.java
+ spotify_framework.PlaybackService
+spotify_framework/Playlist.java
+ spotify_framework.Playlist
+spotify_framework/UserService.java
+ spotify_framework.UserService
+ spotify_framework.UserService$1
+ui/home/HomeFragment.java
+ ui.home.HomeFragment
+ui/databases/PlaylistRepo.java
+ ui.databases.PlaylistRepo
+spotify_framework/VolleyCallBack.java
+ spotify_framework.VolleyCallBack
+ui/notifications/PlaylistFragment.java
+ ui.notifications.PlaylistFragment
+ ui.notifications.PlaylistFragment$1
+ ui.notifications.PlaylistFragment$2
+spotify_framework/Song.java
+ spotify_framework.Song
+spotify_framework/SongService.java
+ spotify_framework.SongService
+ spotify_framework.SongService$1
+ spotify_framework.SongService$2
+ spotify_framework.SongService$3
+ spotify_framework.SongService$4
+ spotify_framework.SongService$5
+ spotify_framework.SongService$6
+ui/notifications/PlaylistAdapter.java
+ ui.notifications.PlaylistAdapter
+ ui.notifications.PlaylistAdapter$1
+ ui.notifications.PlaylistAdapter$OnTaskItemClick
+ ui.notifications.PlaylistAdapter$TaskViewHolder
+spotify_framework/Genre.java
+ spotify_framework.Genre
+ui/dashboard/DashboardFragment.java
+ ui.dashboard.DashboardFragment
+ ui.dashboard.DashboardFragment$1
+ui/notifications/PlaylistViewModel.java
+ ui.notifications.PlaylistViewModel
+ui/LoginActivity.java
+ ui.LoginActivity
+ ui.LoginActivity$1
+ ui.LoginActivity$2
+ ui.LoginActivity$3
 com/example/cfm/BuildConfig.java
  com.example.cfm.BuildConfig
-com/example/cfm/ui/notifications/PlaylistFragment.java
- com.example.cfm.ui.notifications.PlaylistFragment
- com.example.cfm.ui.notifications.PlaylistFragment$1
- com.example.cfm.ui.notifications.PlaylistFragment$2
-com/example/cfm/ui/home/HomeFragment.java
- com.example.cfm.ui.home.HomeFragment
- com.example.cfm.ui.home.HomeFragment$1
- com.example.cfm.ui.home.HomeFragment$2
- com.example.cfm.ui.home.HomeFragment$3
+ui/SplashActivity.java
+ ui.SplashActivity
+ ui.SplashActivity$1
+ui/SongFragment.java
+ ui.SongFragment
+spotify_framework/User.java
+ spotify_framework.User

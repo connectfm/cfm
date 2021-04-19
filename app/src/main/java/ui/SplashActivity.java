@@ -11,10 +11,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 
 import com.example.cfm.R;
-<<<<<<< Updated upstream:app/src/main/java/com/example/cfm/ui/SplashActivity.java
-=======
-import com.fonfon.geohash.GeoHash;
->>>>>>> Stashed changes:app/src/main/java/ui/SplashActivity.java
 
 public class SplashActivity extends AppCompatActivity {
 

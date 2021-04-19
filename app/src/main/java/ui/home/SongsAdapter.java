@@ -9,9 +9,7 @@ import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.cfm.R;
-import com.example.spotify_framework.Song;
-import com.example.spotify_framework.SongService;
-
+import spotify_framework.Song;
 import java.util.Collections;
 import java.util.List;
 
@@ -60,8 +58,8 @@ public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> 
         public ViewHolder(View view) {
             super(view);
 
-            songNameView = (TextView)view.findViewById(R.id.song_name);
-            songArtistView = (TextView)view.findViewById(R.id.song_artist);
+            songNameView = (TextView)view.findViewById(R.id.title);
+            songArtistView = (TextView)view.findViewById(R.id.artist);
         }
 
         public TextView getSongNameView() {

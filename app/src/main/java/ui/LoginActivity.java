@@ -1,11 +1,8 @@
 package ui;
 
-<<<<<<< Updated upstream:app/src/main/java/com/example/cfm/ui/LoginActivity.java
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-=======
->>>>>>> Stashed changes:app/src/main/java/ui/LoginActivity.java
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -14,9 +11,10 @@ import android.os.Bundle;
 
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
-import com.example.spotify_framework.SongService;
-import com.example.spotify_framework.User;
-import com.example.spotify_framework.UserService;
+
+import pub.devrel.easypermissions.EasyPermissions;
+import spotify_framework.User;
+import spotify_framework.UserService;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -35,15 +33,10 @@ import com.spotify.sdk.android.auth.AuthorizationClient;
 import com.spotify.sdk.android.auth.AuthorizationRequest;
 import com.spotify.sdk.android.auth.AuthorizationResponse;
 
-<<<<<<< Updated upstream:app/src/main/java/com/example/cfm/ui/LoginActivity.java
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
-import pub.devrel.easypermissions.EasyPermissions;
-
-=======
->>>>>>> Stashed changes:app/src/main/java/ui/LoginActivity.java
 public class LoginActivity extends AppCompatActivity {
 
     private SharedPreferences.Editor editor;

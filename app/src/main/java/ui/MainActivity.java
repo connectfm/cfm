@@ -7,8 +7,8 @@ import android.content.SharedPreferences;
 
 
 import com.example.cfm.R;
-import com.example.spotify_framework.Song;
-import com.example.spotify_framework.SongService;
+import spotify_framework.Song;
+import spotify_framework.SongService;
 
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;

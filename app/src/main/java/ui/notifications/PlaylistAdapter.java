@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 
 import com.example.cfm.R;
-import com.example.spotify_framework.Playlist;
+import spotify_framework.Playlist;
 
 import java.util.List;
 import java.util.Objects;

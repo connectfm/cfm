@@ -57,19 +57,32 @@ public class SongService {
                     public void onResponse(JSONObject response) {
                         try {
                             JSONArray jsonArray = response.optJSONArray("items");
+                            Gson gson = new Gson();
                             for (int i = 0; i < jsonArray.length(); i++) {
                                 JSONObject song = jsonArray.getJSONObject(i);
                                 Log.d("Song " + i + " JSON Script", song.toString());
-                                populateSong(song.optString("id"), new VolleyCallBack() {
-                                    @Override
-                                    public void onSuccess() {
-                                        playlist.add(getSong());
-                                    }
-                                });
+                                Song s = gson.fromJson(song.toString(), Song.class);
+                                JSONObject trackInfo = song.getJSONObject("track");
+                                JSONObject object = trackInfo.optJSONObject("album");
+                                JSONArray images = object.optJSONArray("images");
+                                for (int j = 0; j < images.length(); j++) {
+                                    JSONObject pic = images.getJSONObject(j);
+                                    s.setImage(pic.optString("url"));
+                                }
+
+                                JSONArray artists = object.getJSONArray("artists");
+                                System.out.println(artists.length());
+                                for(int j = 0; j < artists.length(); j++) {
+                                    JSONObject artist = artists.getJSONObject(j);
+                                    s.setArtist(artist.getString("name"));
+                                }
+                                playlist.add(s);
                             }
-                            callBack.onSuccess();
                         } catch (JSONException e) {
                             e.printStackTrace();
+                        } finally {
+                            removeDupes(playlist);
+                            callBack.onSuccess();
                         }
                     }
                 }, new Response.ErrorListener() {
@@ -143,5 +156,17 @@ public class SongService {
             songs.add(song);
         }
         return songs;
+    }
+
+    public void removeDupes(ArrayList<Song> playlist) {
+        ArrayList<String> idList = new ArrayList<>();
+
+        for(int i = 0; i < playlist.size(); i++) {
+            if(idList.contains(playlist.get(i).getId())) {
+                playlist.remove(playlist.get(i));
+            }
+            else
+                idList.add(playlist.get(i).getId());
+        }
     }
 }

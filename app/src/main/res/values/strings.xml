@@ -22,4 +22,5 @@
 
     <string name="welcome">Welcome</string>
     <string name="welcome_text">Sign up for free music on your phone, tablet, and computer.</string>
+    <string name="player">player</string>
 </resources>
