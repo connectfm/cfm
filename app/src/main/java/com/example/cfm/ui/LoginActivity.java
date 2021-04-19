@@ -1,9 +1,12 @@
 package com.example.cfm.ui;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 
 import com.android.volley.RequestQueue;
@@ -12,17 +15,25 @@ import com.example.spotify_framework.User;
 import com.example.spotify_framework.UserService;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 
+import android.os.HandlerThread;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
 import com.example.cfm.R;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
 import com.spotify.sdk.android.auth.AuthorizationClient;
 import com.spotify.sdk.android.auth.AuthorizationRequest;
 import com.spotify.sdk.android.auth.AuthorizationResponse;
 
 import java.util.Map;
+
+import pub.devrel.easypermissions.EasyPermissions;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -41,11 +52,12 @@ public class LoginActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        System.out.println("poo poo poo");
-
         setContentView(R.layout.activity_login);
         preferences = this.getSharedPreferences("SPOTIFY", 0);
         queue = Volley.newRequestQueue(this);
+
+        checkPermissions();
+        locationTest();     //TODO temporary, should be removed
 
         final Button button = findViewById(R.id.login_button);
         button.setOnClickListener(new View.OnClickListener() {
@@ -121,6 +133,59 @@ public class LoginActivity extends AppCompatActivity {
         builder.setScopes(scopes);
         AuthorizationRequest request = builder.build();
         AuthorizationClient.openLoginActivity(this,reqCode,request);
+    }
+
+    private void locationTest() {
+        System.out.println("starting the test");
+        LocationRequest lr = LocationRequest.create();
+        lr.setInterval(10000);
+        lr.setFastestInterval(3000);
+        lr.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        System.out.println(Build.VERSION.SDK_INT);
+
+        final HandlerThread ht = new HandlerThread("location stuff");
+        ht.start();
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            System.out.println("damn pt 2");
+        }
+
+        LocationServices.getFusedLocationProviderClient(this).requestLocationUpdates(lr, new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult lr) {
+                super.onLocationResult(lr);
+                System.out.println("in the locationcallback");
+                if (lr != null && lr.getLocations().size() > 0) {
+                    int i = lr.getLocations().size();
+                    System.out.println(lr.getLocations());
+                    System.out.println(lr.getLocations().get(i - 1));
+                }
+                LocationServices.getFusedLocationProviderClient(LoginActivity.this).removeLocationUpdates(this);
+                ht.quit();
+            }
+        }, ht.getLooper());
+        System.out.println("finishing the test");
+    }
+
+    public void checkPermissions() {
+        String[] perms = {Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION,
+                Manifest.permission.INTERNET,
+                Manifest.permission.ACCESS_NETWORK_STATE};
+
+        if (EasyPermissions.hasPermissions(this, perms)) {
+            System.out.println("we have perms");
+        } else {
+            EasyPermissions.requestPermissions(this, "connect.fm requires location data. Please accept the following permission.", 1, perms);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        // Forward results to EasyPermissions
+        EasyPermissions.onRequestPermissionsResult(requestCode, permissions, grantResults, this);
     }
 
 }
