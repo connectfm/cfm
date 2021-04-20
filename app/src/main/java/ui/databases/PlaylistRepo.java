@@ -4,7 +4,7 @@ import android.app.Application;
 
 import androidx.lifecycle.LiveData;
 
-import com.example.spotify_framework.Playlist;
+import spotify_framework.Playlist;
 
 import java.util.List;
 
