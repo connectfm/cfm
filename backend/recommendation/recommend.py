@@ -54,9 +54,9 @@ class User:
 				f'Unable to find all attributes for user {self.name}: '
 				f'{[v for v in values if v is None]}')
 		for m, v in zip(missing, values):
-			attrs[m] = v
+			attrs[m] = np.float32(v)
 		if self.taste is None:
-			self.taste = np.array(redis.get('avg_taste'))
+			self.taste = np.array(await redis.get('avg_taste'))
 			logger.warning(
 				f'Unable to find taste of user {self.name}. Using average '
 				f'taste {self.taste}')
@@ -167,11 +167,10 @@ class Recommender:
 			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
 		return np.array(ne)
 
-	@staticmethod
-	async def get_tastes(*users: str) -> Tuple[np.ndarray, np.ndarray]:
+	async def get_tastes(self, *users: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the taste vectors of one or more users."""
 		logger.info(f'Retrieving the music tastes of {len(users)} neighbors')
-		tastes = redis.mget(*(User.as_taste_key(u) for u in users))
+		tastes = await redis.mget(*(User.as_taste_key(u) for u in users))
 		if missing := [t for t in tastes if t is None]:
 			logger.warning(
 				f'Unable to find tastes for {len(missing)} users: {missing}')
@@ -179,7 +178,7 @@ class Recommender:
 			present = [(u, t) for u, t in zip(users, tastes) if t is not None]
 			users = [u for u, _ in present]
 			tastes = [t for _, t in present]
-		return np.array(users), np.array(tastes)
+		return np.array(users), self.float_array(tastes)
 
 	def sample_neighbor(
 			self,
@@ -266,7 +265,7 @@ class Recommender:
 			self, user: User, neighbor: User, n_clusters: int) -> np.ndarray:
 		c_ratings, per_cluster = np.zeros(n_clusters), np.zeros(n_clusters)
 		idx = 0
-		async for cluster in redis.iscan('cluster_*'):
+		async for cluster in redis.iscan(match='cluster_*'):
 			async for song in redis.sscan(f'cluster_{cluster}'):
 				rating = await self.adj_rating(user, neighbor, song)
 				c_ratings[idx] += rating
@@ -309,15 +308,15 @@ class Recommender:
 			f'{user.name}_{song}_time',
 			f'{neighbor.name}_{song}_time')
 		logger.debug('Retrieved song features, ratings, and timestamps')
-		ratings = np.array([u_rating, ne_rating])
+		ratings = self.float_array([u_rating, ne_rating])
 		logger.debug(_format(ratings, 'rating'))
-		deltas = np.array([self.delta(u_time), self.delta(ne_time)])
+		deltas = self.float_array([self.delta(u_time), self.delta(ne_time)])
 		logger.debug(_format(deltas, 'time delta'))
 		ratings = capacitive(ratings, deltas)
 		logger.debug(_format(ratings, 'capacitive rating'))
-		biases = np.array([user.bias, 1 - user.bias])
+		biases = self.float_array([user.bias, 1 - user.bias])
 		logger.debug(_format(biases, 'bias'))
-		similarity = np.array([
+		similarity = self.float_array([
 			1 / (1 + self._metric(user.taste, features)),
 			1 / (1 + self._metric(neighbor.taste, features))])
 		logger.debug(_format(similarity, 'similarity'))
@@ -327,8 +326,13 @@ class Recommender:
 		return rating
 
 	@staticmethod
-	def delta(timestamp: float) -> float:
+	def float_array(__x):
+		return np.array(__x, dtype=np.float32)
+
+	@staticmethod
+	def delta(timestamp: Union[str, float]) -> float:
 		"""Returns the difference in days between a timestamp and now."""
+		timestamp = float(timestamp)
 		logger.debug(f'Computing time delta of timestamp {timestamp}')
 		delta = _NOW - datetime.datetime.utcfromtimestamp(timestamp)
 		delta = delta.total_seconds() / _DAY_IN_SECS
