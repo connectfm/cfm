@@ -47,7 +47,7 @@ class User:
 			self.long_key,
 			self.rad_key])
 		query = keys[missing]
-		if not any(values := redis.mget(*query)):
+		if not any(values := await redis.mget(*query)):
 			raise exceptions.UserNotFoundError(f'Unable to find {self.name}')
 		if not all(values):
 			logger.warning(
