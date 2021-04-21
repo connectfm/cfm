@@ -2,20 +2,20 @@ com/example/spotify_framework/User.java
  com.example.spotify_framework.User
 com/example/cfm/ui/dashboard/DashboardViewModel.java
  com.example.cfm.ui.dashboard.DashboardViewModel
-com/example/spotify_framework/UserService.java
- com.example.spotify_framework.UserService
- com.example.spotify_framework.UserService$1
 com/example/cfm/ui/dashboard/DashboardFragment.java
  com.example.cfm.ui.dashboard.DashboardFragment
  com.example.cfm.ui.dashboard.DashboardFragment$1
-com/example/spotify_framework/PlaybackService.java
- com.example.spotify_framework.PlaybackService
+com/example/spotify_framework/UserService.java
+ com.example.spotify_framework.UserService
+ com.example.spotify_framework.UserService$1
 com/example/spotify_framework/Playlist.java
  com.example.spotify_framework.Playlist
-com/example/spotify_framework/Genre.java
- com.example.spotify_framework.Genre
+com/example/spotify_framework/PlaybackService.java
+ com.example.spotify_framework.PlaybackService
 com/example/cfm/ui/home/HomeViewModel.java
  com.example.cfm.ui.home.HomeViewModel
+com/example/spotify_framework/Genre.java
+ com.example.spotify_framework.Genre
 com/example/spotify_framework/Song.java
  com.example.spotify_framework.Song
 com/example/cfm/FirstFragment.java
@@ -24,13 +24,13 @@ com/example/cfm/FirstFragment.java
 com/example/cfm/SecondFragment.java
  com.example.cfm.SecondFragment
  com.example.cfm.SecondFragment$1
-com/example/cfm/ui/SplashActivity.java
- com.example.cfm.ui.SplashActivity
- com.example.cfm.ui.SplashActivity$1
 com/example/cfm/ui/LoginActivity.java
  com.example.cfm.ui.LoginActivity
  com.example.cfm.ui.LoginActivity$1
  com.example.cfm.ui.LoginActivity$2
+com/example/cfm/ui/SplashActivity.java
+ com.example.cfm.ui.SplashActivity
+ com.example.cfm.ui.SplashActivity$1
 com/example/cfm/ui/SongFragment.java
  com.example.cfm.ui.SongFragment
 com/example/spotify_framework/VolleyCallBack.java
@@ -48,6 +48,7 @@ com/example/spotify_framework/SongService.java
  com.example.spotify_framework.SongService$6
 com/example/cfm/ui/MainActivity.java
  com.example.cfm.ui.MainActivity
+ com.example.cfm.ui.MainActivity$1
 com/example/cfm/ui/databases/PlaylistRepo.java
  com.example.cfm.ui.databases.PlaylistRepo
 com/example/cfm/ui/home/SongsAdapter.java

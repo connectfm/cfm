@@ -1,10 +1,13 @@
 package com.example.cfm.ui;
 
+import android.Manifest;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 
 import android.content.SharedPreferences;
+import android.os.HandlerThread;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -17,14 +20,21 @@ import com.example.spotify_framework.Song;
 import com.example.spotify_framework.SongService;
 
 
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
+
+import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 
@@ -56,6 +66,43 @@ public class MainActivity extends AppCompatActivity {
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfiguration);
         NavigationUI.setupWithNavController(navView, navController);
 
+        locationTest();
     }
+
+    private void locationTest() {
+
+        final long LOCATION_INTERVAL = 900000;
+        final long FASTEST_LOCATION_INTERVAL = LOCATION_INTERVAL;
+
+        System.out.println("starting the test");
+        LocationRequest lr = LocationRequest.create();
+        lr.setInterval(LOCATION_INTERVAL);
+        lr.setFastestInterval(FASTEST_LOCATION_INTERVAL);
+        lr.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+        System.out.println(Build.VERSION.SDK_INT);
+
+        final HandlerThread ht = new HandlerThread("location stuff");
+        ht.start();
+
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            System.out.println("damn pt 2");
+        }
+
+        LocationServices.getFusedLocationProviderClient(this).requestLocationUpdates(lr, new LocationCallback() {
+            @Override
+            public void onLocationResult(@NotNull LocationResult lr) {
+                super.onLocationResult(lr);
+                System.out.println("in the locationcallback");
+                if (lr != null && lr.getLocations().size() > 0) {
+                    int i = lr.getLocations().size();
+                    System.out.println(lr.getLocations().get(i - 1));
+                }
+                //LocationServices.getFusedLocationProviderClient(MainActivity.this).removeLocationUpdates(this);
+                //ht.quit();
+            }
+        }, ht.getLooper());
+        System.out.println("finishing the test");
+    }
+
 
 }

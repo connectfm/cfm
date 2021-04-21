@@ -63,7 +63,6 @@ public class LoginActivity extends AppCompatActivity {
         queue = Volley.newRequestQueue(this);
 
         checkPermissions();
-        locationTest();     //TODO temporary, should be removed
 
         final Button button = findViewById(R.id.login_button);
         button.setOnClickListener(new View.OnClickListener() {
@@ -131,38 +130,6 @@ public class LoginActivity extends AppCompatActivity {
         builder.setScopes(scopes);
         AuthorizationRequest request = builder.build();
         AuthorizationClient.openLoginActivity(this,reqCode,request);
-    }
-
-    private void locationTest() {
-        System.out.println("starting the test");
-        LocationRequest lr = LocationRequest.create();
-        lr.setInterval(10000);
-        lr.setFastestInterval(3000);
-        lr.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        System.out.println(Build.VERSION.SDK_INT);
-
-        final HandlerThread ht = new HandlerThread("location stuff");
-        ht.start();
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            System.out.println("damn pt 2");
-        }
-
-        LocationServices.getFusedLocationProviderClient(this).requestLocationUpdates(lr, new LocationCallback() {
-            @Override
-            public void onLocationResult(@NotNull LocationResult lr) {
-                super.onLocationResult(lr);
-                System.out.println("in the locationcallback");
-                if (lr != null && lr.getLocations().size() > 0) {
-                    int i = lr.getLocations().size();
-                    System.out.println(lr.getLocations());
-                    System.out.println(lr.getLocations().get(i - 1));
-                }
-                LocationServices.getFusedLocationProviderClient(LoginActivity.this).removeLocationUpdates(this);
-                ht.quit();
-            }
-        }, ht.getLooper());
-        System.out.println("finishing the test");
     }
 
     public void checkPermissions() {
