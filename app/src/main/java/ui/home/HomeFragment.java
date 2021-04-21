@@ -7,29 +7,19 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.android.volley.AuthFailureError;
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonObjectRequest;
-import com.android.volley.toolbox.Volley;
+import com.cfm.recommend.Recommender;
 import com.example.cfm.R;
-import spotify_framework.Playlist;
+
 import spotify_framework.Song;
 import spotify_framework.SongService;
-import spotify_framework.VolleyCallBack;
-import com.google.gson.Gson;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,6 +31,8 @@ public class HomeFragment extends Fragment {
     public SongService songService;
     private RecyclerView recyclerView;
     private SongsAdapter adapter;
+    private Recommender recommender;
+    private Button radioStart;
 
     public void onCreate() {
     }
@@ -48,6 +40,12 @@ public class HomeFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_home, container, false);
+        radioStart = (Button) root.findViewById(R.id.begin_listening);
+        radioStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+            }
+        });
         return root;
     }
 
@@ -55,6 +53,7 @@ public class HomeFragment extends Fragment {
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
         songService = new SongService(getActivity());
+
         songService.getRecentlyPlayed(() -> {
             ArrayList<Song> recents = songService.getPlaylist();
             adapter = new SongsAdapter(getActivity(), recents);
