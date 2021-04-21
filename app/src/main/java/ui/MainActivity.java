@@ -1,30 +1,17 @@
 package ui;
 
-<<<<<<< HEAD:app/src/main/java/com/example/cfm/ui/MainActivity.java
 import android.Manifest;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-=======
->>>>>>> 179aec2388e0e21ea09cb9653740089b9beb0867:app/src/main/java/ui/MainActivity.java
+import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 
 import android.content.SharedPreferences;
-<<<<<<< HEAD:app/src/main/java/com/example/cfm/ui/MainActivity.java
 import android.os.HandlerThread;
-import android.util.Log;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
-=======
->>>>>>> 179aec2388e0e21ea09cb9653740089b9beb0867:app/src/main/java/ui/MainActivity.java
-
 
 import com.example.cfm.R;
 import spotify_framework.Song;
 import spotify_framework.SongService;
-
 
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -100,13 +87,19 @@ public class MainActivity extends AppCompatActivity {
                 System.out.println("in the locationcallback");
                 if (lr != null && lr.getLocations().size() > 0) {
                     int i = lr.getLocations().size();
-                    System.out.println(lr.getLocations().get(i - 1));
+                    Location loc = lr.getLocations().get(i - 1);
+                    System.out.println(loc);
+                    sendLocation();
                 }
                 //LocationServices.getFusedLocationProviderClient(MainActivity.this).removeLocationUpdates(this);
                 //ht.quit();
             }
         }, ht.getLooper());
         System.out.println("finishing the test");
+    }
+
+    private void sendLocation() {
+        //TODO lemme find the schema
     }
 
 
