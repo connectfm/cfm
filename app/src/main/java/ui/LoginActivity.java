@@ -133,10 +133,14 @@ public class LoginActivity extends AppCompatActivity {
     }
 
     public void checkPermissions() {
-        String[] perms = {Manifest.permission.ACCESS_FINE_LOCATION,
+        String[] perms = {
+                Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION,
                 Manifest.permission.INTERNET,
-                Manifest.permission.ACCESS_NETWORK_STATE};
+                Manifest.permission.ACCESS_NETWORK_STATE,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+        };
 
         if (EasyPermissions.hasPermissions(this, perms)) {
             System.out.println("we have perms");
