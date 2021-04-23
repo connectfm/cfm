@@ -31,6 +31,7 @@ android {
         }
     }
     compileOptions {
+        //coreLibraryDesugaringEnabled true       //requested by Amplify libraries
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -43,6 +44,8 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok:1.18.16'
     implementation 'com.spotify.android:auth:1.2.3'
 
+    implementation 'com.amplifyframework:aws-datastore:1.17.1'
+    implementation 'com.squareup.picasso:picasso:2.71828'
     implementation 'pub.devrel:easypermissions:3.0.0'
     implementation 'com.google.android.gms:play-services-location:18.0.0'
     implementation 'com.google.code.gson:gson:2.8.5'

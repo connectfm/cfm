@@ -21,8 +21,8 @@ import android.widget.Button;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.spotify_framework.Playlist;
-import com.example.spotify_framework.Song;
+import spotify_framework.Playlist;
+import spotify_framework.Song;
 
 
 import java.util.ArrayList;

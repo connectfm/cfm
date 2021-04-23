@@ -2,7 +2,7 @@ package spotify_framework;
 
 import android.graphics.Bitmap;
 
-import com.example.spotify_framework.Song;
+import spotify_framework.Song;
 
 import java.util.List;
 

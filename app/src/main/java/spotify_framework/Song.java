@@ -14,6 +14,7 @@ public class Song {
     private List<String> artistsList = new ArrayList<String>();
     private List<String> albumImages = new ArrayList<String>();
     private String artist_id;
+    private String albumName;
 
     public Song(String id, String name) {
         this.name = name;
@@ -28,7 +29,15 @@ public class Song {
         return name;
     }
 
+    public String getAlbum() {
+        return albumName;
+    }
+
     public List<String> getArtists() {return artistsList;}
+
+    public void setAlbumName(String name) {
+        this.albumName = name;
+    }
 
 
     public void setTitle() {

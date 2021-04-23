@@ -1,11 +1,9 @@
 package ui;
 
-<<<<<<< Updated upstream:app/src/main/java/com/example/cfm/ui/LoginActivity.java
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-=======
->>>>>>> Stashed changes:app/src/main/java/ui/LoginActivity.java
+
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
@@ -14,9 +12,8 @@ import android.os.Bundle;
 
 import com.android.volley.RequestQueue;
 import com.android.volley.toolbox.Volley;
-import com.example.spotify_framework.SongService;
-import com.example.spotify_framework.User;
-import com.example.spotify_framework.UserService;
+import spotify_framework.User;
+import spotify_framework.UserService;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -34,16 +31,12 @@ import com.google.android.gms.location.LocationServices;
 import com.spotify.sdk.android.auth.AuthorizationClient;
 import com.spotify.sdk.android.auth.AuthorizationRequest;
 import com.spotify.sdk.android.auth.AuthorizationResponse;
-
-<<<<<<< Updated upstream:app/src/main/java/com/example/cfm/ui/LoginActivity.java
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
 import pub.devrel.easypermissions.EasyPermissions;
 
-=======
->>>>>>> Stashed changes:app/src/main/java/ui/LoginActivity.java
 public class LoginActivity extends AppCompatActivity {
 
     private SharedPreferences.Editor editor;
@@ -56,7 +49,8 @@ public class LoginActivity extends AppCompatActivity {
             "user-library-modify" ,
             "user-read-email" ,
             "user-read-private",
-            "user-read-recently-played"};
+            "user-read-recently-played",
+            "app-remote-control"};
     private static final int reqCode = 0x10;
     private static final String TAG = "Spotify " + LoginActivity.class.getSimpleName();
 
@@ -69,7 +63,6 @@ public class LoginActivity extends AppCompatActivity {
         queue = Volley.newRequestQueue(this);
 
         checkPermissions();
-        locationTest();     //TODO temporary, should be removed
 
         final Button button = findViewById(R.id.login_button);
         button.setOnClickListener(new View.OnClickListener() {
@@ -139,43 +132,15 @@ public class LoginActivity extends AppCompatActivity {
         AuthorizationClient.openLoginActivity(this,reqCode,request);
     }
 
-    private void locationTest() {
-        System.out.println("starting the test");
-        LocationRequest lr = LocationRequest.create();
-        lr.setInterval(10000);
-        lr.setFastestInterval(3000);
-        lr.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        System.out.println(Build.VERSION.SDK_INT);
-
-        final HandlerThread ht = new HandlerThread("location stuff");
-        ht.start();
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            System.out.println("damn pt 2");
-        }
-
-        LocationServices.getFusedLocationProviderClient(this).requestLocationUpdates(lr, new LocationCallback() {
-            @Override
-            public void onLocationResult(@NotNull LocationResult lr) {
-                super.onLocationResult(lr);
-                System.out.println("in the locationcallback");
-                if (lr != null && lr.getLocations().size() > 0) {
-                    int i = lr.getLocations().size();
-                    System.out.println(lr.getLocations());
-                    System.out.println(lr.getLocations().get(i - 1));
-                }
-                LocationServices.getFusedLocationProviderClient(LoginActivity.this).removeLocationUpdates(this);
-                ht.quit();
-            }
-        }, ht.getLooper());
-        System.out.println("finishing the test");
-    }
-
     public void checkPermissions() {
-        String[] perms = {Manifest.permission.ACCESS_FINE_LOCATION,
+        String[] perms = {
+                Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION,
                 Manifest.permission.INTERNET,
-                Manifest.permission.ACCESS_NETWORK_STATE};
+                Manifest.permission.ACCESS_NETWORK_STATE,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+        };
 
         if (EasyPermissions.hasPermissions(this, perms)) {
             System.out.println("we have perms");
