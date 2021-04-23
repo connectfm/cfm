@@ -10,7 +10,7 @@ import random
 from scipy.spatial import distance
 from typing import Any, Callable, NoReturn, Tuple, Union
 
-from backend.recommendation import exceptions
+from backend.recommendation.recommend import exceptions
 
 _NOW = datetime.datetime.utcnow()
 # TODO(rdt17) Move these to environment variables
