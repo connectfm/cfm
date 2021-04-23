@@ -1,6 +1,7 @@
 import aioredis
 import attr
 import datetime
+import json
 import logging
 import msgpack_numpy as mp
 import numbers
@@ -12,14 +13,20 @@ from typing import Any, Callable, NoReturn, Tuple, Union
 from backend.recommendation import exceptions
 
 _NOW = datetime.datetime.utcnow()
+# TODO(rdt17) Move these to environment variables
 _DAY_IN_SECS = 86_400
 _NEUTRAL_RATING = 2
-_DEFAULT_NUM_CLUSTERS = 50
+_DEFAULT_NUM_CLUSTERS = 100
+_NUM_RANDOM_USERS = 100
 
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 redis = await aioredis.create_redis_pool('redis://localhost')
+
+
+def float_array(__x):
+	return np.array(__x, dtype=np.float32)
 
 
 @attr.s(slots=True)
@@ -36,32 +43,24 @@ class User:
 			self.taste = np.array(self.taste)
 
 	def retrieve(self) -> NoReturn:
-		logger.info(f'Retrieving attributes for user {self.name}')
-		attrs = [self.taste, self.bias, self.lat, self.long, self.rad]
-		missing = np.array([a is None for a in attrs])
-		missing = np.flatnonzero(missing)
-		keys = np.array([
-			self.taste_key,
-			self.bias_key,
-			self.lat_key,
-			self.long_key,
-			self.rad_key])
-		query = keys[missing]
-		if not any(values := await redis.mget(*query)):
+		logger.info(f'Retrieving attributes of user {self.name}')
+		attrs = [self.taste, self.bias, self.rad]
+		keys = np.array([self.taste_key, self.bias_key, self.rad_key])
+		if not any(values := await redis.mget(*keys)):
 			raise exceptions.UserNotFoundError(f'Unable to find {self.name}')
 		if not all(values):
 			logger.warning(
-				f'Unable to find all attributes for user {self.name}: '
-				f'{[v for v in values if v is None]}')
-		for m, v in zip(missing, values):
-			attrs[m] = np.float32(v)
-		if self.taste is None:
-			self.taste = np.array(await redis.get('avg_taste'))
-			logger.warning(
-				f'Unable to find taste of user {self.name}. Using average '
-				f'taste {self.taste}')
+				f'Unable to find all attributes of user {self.name}: '
+				f'{[k for k, v in zip(keys, values) if v is None]}')
+		for a, (k, v) in enumerate(zip(keys, values)):
+			if k == self.taste_key:
+				attrs[a] = float_array(mp.unpackb(v))
+			else:
+				attrs[a] = np.float32(v)
+		if loc := redis.geopos(self.name):
+			self.long, self.lat = loc
 		else:
-			self.taste = np.array(self.taste)
+			logger.warning(f'Unable to find location of user {self.name}')
 
 	@classmethod
 	def from_name(cls, name: str) -> 'User':
@@ -75,7 +74,7 @@ class User:
 
 	@classmethod
 	def as_taste_key(cls, s: str) -> str:
-		return f'{s}_taste'
+		return f'taste:{s}'
 
 	@property
 	def bias_key(self) -> str:
@@ -83,23 +82,15 @@ class User:
 
 	@classmethod
 	def as_bias_key(cls, s: str) -> str:
-		return f'{s}_bias'
+		return f'bias:{s}'
 
 	@property
-	def lat_key(self) -> str:
-		return self.as_lat_key(self.name)
+	def loc_key(self) -> str:
+		return self.as_loc_key(self.name)
 
 	@classmethod
-	def as_lat_key(cls, s: str) -> str:
-		return f'{s}_lat'
-
-	@property
-	def long_key(self) -> str:
-		return self.as_long_key(self.name)
-
-	@classmethod
-	def as_long_key(cls, s: str) -> str:
-		return f'{s}_long'
+	def as_loc_key(cls, s: str) -> str:
+		return f'loc:{s}'
 
 	@property
 	def rad_key(self) -> str:
@@ -107,13 +98,13 @@ class User:
 
 	@classmethod
 	def as_rad_key(cls, s: str) -> str:
-		return f'{s}_rad'
+		return f'rad:{s}'
 
-	def as_clusters_key(self, user: 'User') -> str:
-		return f'{self.name}_{user.name}'
+	def as_scores_key(self, user: 'User') -> str:
+		return f'cscores:{self.name}.{user.name}'
 
-	def as_cluster_key(self, user: 'User', cluster: Union[str, int]) -> str:
-		return f'{self.name}_{user.name}_{cluster}'
+	def as_ratings_key(self, user: 'User', cluster: int) -> str:
+		return f'cratings:{self.name}.{user.name}.{cluster}'
 
 
 @attr.s(slots=True, frozen=True)
@@ -130,7 +121,11 @@ class Recommender:
 	async def recommend(self, user: str) -> str:
 		"""Returns a recommended song based on a user."""
 		logger.info(f'Retrieving a recommendation for user {user}')
-		user = User.from_name(user)
+		if (user := User.from_name(user)).taste is None:
+			logger.warning(
+				f'Unable to find the taste of user {user.name}. Using a taste '
+				'from a random user')
+			user.taste = await self.get_random_taste()
 		if (neighbors := await self.get_neighbors(user)).size > 0:
 			neighbors, tastes = await self.get_tastes(*neighbors)
 			if neighbors.size > 0:
@@ -154,31 +149,45 @@ class Recommender:
 	async def get_neighbors(user: User) -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
 		logger.info(f'Finding the neighbors of user {user.name}')
-		geolocation = (user.long, user.lat, user.rad)
-		if not all(geolocation):
-			keys = (user.long_key, user.lat_key, user.rad_key)
-			logger.warning(
-				f'Unable to find all geolocation attributes of user'
-				f' {user.name}: '
-				f'{[k for k, g in zip(keys, geolocation) if g is None]}')
+		if not all((user.long, user.lat, user.rad)):
+			logger.warning(f'Unable to find the location of user {user.name}')
 			ne = []
 		else:
-			ne = redis.georadius(user.name, *geolocation)
+			ne = redis.georadius(user.name, user.long, user.lat, user.rad)
 			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
 		return np.array(ne)
 
-	async def get_tastes(self, *users: str) -> Tuple[np.ndarray, np.ndarray]:
+	@staticmethod
+	async def get_tastes(*users: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the taste vectors of one or more users."""
 		logger.info(f'Retrieving the music tastes of {len(users)} neighbors')
 		tastes = await redis.mget(*(User.as_taste_key(u) for u in users))
 		if missing := [t for t in tastes if t is None]:
 			logger.warning(
-				f'Unable to find tastes for {len(missing)} users: {missing}')
-			logger.warning('Filtering out neighbors with missing tastes')
+				f'Unable to find tastes for {len(missing)} of {len(users)} '
+				f'users. Filtering out missing tastes. The following are the '
+				f'users with missing tastes: {missing}')
 			present = [(u, t) for u, t in zip(users, tastes) if t is not None]
-			users = [u for u, _ in present]
-			tastes = [t for _, t in present]
-		return np.array(users), self.float_array(tastes)
+			users = np.array([u for u, _ in present])
+			tastes = float_array([mp.unpackb(t) for _, t in present])
+		return users, tastes
+
+	async def get_random_taste(self) -> np.ndarray:
+		logger.info(
+			'Randomly retrieving the music taste from one of the first '
+			f'{_NUM_RANDOM_USERS} users')
+		i, stop, taste = 0, self._rng.integers(_NUM_RANDOM_USERS), None
+		async for t in redis.scan(match=User.as_taste_key('*')):
+			if i > stop:
+				break
+			else:
+				taste = t
+				i += 1
+		if taste is None:
+			raise exceptions.UserNotFoundError(
+				'Unable to find the taste of any users')
+		else:
+			return float_array(mp.unpackb(taste))
 
 	def sample_neighbor(
 			self,
@@ -193,7 +202,7 @@ class Recommender:
 		dissimilarity = distance.cdist(u_taste, tastes, metric=self._metric)
 		similarity = 1 / (1 + dissimilarity)
 		neighbor, idx = self.sample(neighbors, similarity, with_index=True)
-		logger.info(f'Sampled neighbor {neighbor.name} for recommendation')
+		logger.info(f'Sampled neighbor {neighbor} for recommendation')
 		neighbor = User(neighbor, taste=tastes[idx])
 		return neighbor
 
@@ -223,9 +232,13 @@ class Recommender:
 		"""Returns a song based on user and neighbor contexts."""
 		cluster = await self.sample_cluster(user, neighbor)
 		logger.info(f'Sampling a song to recommend')
-		songs, ratings = self.get_cached_ratings(user, neighbor, cluster)
-		if not all((songs, ratings)):
-			songs, ratings = self.compute_song_ratings(user, neighbor, cluster)
+		key = user.as_ratings_key(neighbor, cluster)
+		if cached := await self.get_cached(user, neighbor, key):
+			songs, ratings = cached
+			songs, ratings = np.array(songs), np.array(ratings)
+		else:
+			songs, ratings = await self.compute_song_ratings(
+				user, neighbor, cluster)
 		song = self.sample(songs, ratings)
 		logger.info(f'Sampled song {song}')
 		return song
@@ -233,57 +246,67 @@ class Recommender:
 	async def sample_cluster(self, user: User, neighbor: User) -> int:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommend a song')
-		n_clusters, c_rates = self.get_all_cached_ratings(user, neighbor)
-		if not c_rates:
-			c_rates = self.compute_cluster_ratings(user, neighbor, n_clusters)
-		cluster = self.sample(np.arange(n_clusters), c_rates)
+		key = user.as_scores_key(neighbor)
+		if scores := await self.get_cached(user, neighbor, key):
+			scores = float_array(scores)
+		else:
+			scores = await self.compute_scores(user, neighbor)
+		cluster = self.sample(np.arange(scores.size), scores)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
 
 	@staticmethod
-	async def get_all_cached_ratings(user: User, neighbor: User) -> Tuple:
-		if n_clusters := await redis.get('n_clusters'):
-			logger.info(f'Using cached number of clusters: {n_clusters}')
-			n_clusters = int(n_clusters)
+	async def get_cached(user: User, neighbor: User, key: str) -> Any:
+		"""Returns the cached value for a given user and neighbor"""
+		value = None
+		if data := await redis.get(key):
+			data = json.loads(data)
+			value, timestamp = data['value'], data['time']
+			if Recommender.is_valid(timestamp):
+				logger.info(
+					f'Using cached {key} between user {user.name} and '
+					f'neighbor {neighbor.name}')
+			else:
+				logger.info(
+					'Clusters have been updated since caching the value '
+					f'between user {user.name} and neighbor {neighbor.name}')
+				value = None
+		return value
+
+	@staticmethod
+	def is_valid(timestamp: float) -> bool:
+		valid = True
+		if c_time := await redis.get('ctime'):
+			valid = timestamp > c_time
 		else:
 			logger.warning(
-				f'Unable to find the number of clusters. Using '
-				f'{(n_clusters := _DEFAULT_NUM_CLUSTERS)}')
-		if c_ratings := await redis.get(user.as_clusters_key(neighbor)):
-			logger.info(
-				f'Using cached cluster ratings between user {user.name} and '
-				f'neighbor {neighbor.name}')
-			c_ratings: np.ndarray = mp.unpackb(c_ratings)
-			if (n_ratings := c_ratings.size) != n_clusters:
-				logger.warning(
-					f'Cached number of clusters ({n_clusters}) and number of '
-					f'cluster ratings ({n_ratings}) do not match. Using '
-					f'{(n_clusters := n_ratings)} number of clusters')
-		return n_clusters, c_ratings
+				'Unable to find the cluster scores timestamp. Assuming '
+				'the associated value is still representative')
+		return valid
 
-	async def compute_cluster_ratings(
-			self, user: User, neighbor: User, n_clusters: int) -> np.ndarray:
-		c_ratings, per_cluster = np.zeros(n_clusters), np.zeros(n_clusters)
-		idx = 0
-		async for cluster in redis.iscan(match='cluster_*'):
-			async for song in redis.sscan(f'cluster_{cluster}'):
+	async def compute_scores(self, user: User, neighbor: User) -> np.ndarray:
+		"""Computes cluster scores and caches the result"""
+		scores = np.zeros(_DEFAULT_NUM_CLUSTERS)
+		per_cluster = np.zeros(_DEFAULT_NUM_CLUSTERS)
+		i = 0
+		async for cluster in redis.iscan(match='cluster:*'):
+			async for song in redis.sscan(f'cluster:{cluster}'):
 				rating = await self.adj_rating(user, neighbor, song)
-				c_ratings[idx] += rating
-				per_cluster[idx] += 1
-			idx += 1
-		c_ratings = c_ratings[np.flatnonzero(c_ratings)]
+				scores[i] += rating
+				per_cluster[i] += 1
+			i += 1
+		scores = scores[np.flatnonzero(scores)]
 		per_cluster = per_cluster[np.flatnonzero(per_cluster)]
-		logger.debug(f'Number of clusters: {idx}')
-		logger.debug(f'Number of songs in clusters: {sum(per_cluster)}')
+		logger.debug(f'Number of clusters: {i}')
+		logger.debug(f'Number of songs: {sum(per_cluster)}')
 		logger.debug(f'Number of songs per cluster: {per_cluster}')
-		logger.info(f'Caching number of clusters: {idx}')
-		result = await redis.set('n_clusters', idx)
-		self.log_cache_event(result, 'the number of clusters')
-		logger.info(f'Caching cluster ratings: {c_ratings}')
-		key = user.as_clusters_key(neighbor)
-		result = await redis.set(key, mp.packb(c_ratings), expire=_DAY_IN_SECS)
-		self.log_cache_event(result, 'cluster ratings', _DAY_IN_SECS)
-		return c_ratings
+		logger.info(f'Caching number of clusters: {i}')
+		logger.info(f'Caching cluster scores: {scores}')
+		key = user.as_scores_key(neighbor)
+		cached = {'value': scores.tolist(), 'time': _NOW.timestamp()}
+		result = await redis.set(key, cached, expire=_DAY_IN_SECS)
+		self.log_cache_event(result, 'cluster scores', _DAY_IN_SECS)
+		return scores
 
 	async def adj_rating(self, user: User, neighbor: User, song: str) -> int:
 		"""Computes a context-based adjusted rating of a song."""
@@ -302,21 +325,21 @@ class Recommender:
 
 		logger.debug('Retrieving song features, ratings, and timestamps')
 		features, u_rating, ne_rating, u_time, ne_time = await redis.mget(
-			f'song_{song}',
-			f'{user.name}_{song}_rating',
-			f'{neighbor.name}_{song}_rating',
-			f'{user.name}_{song}_time',
-			f'{neighbor.name}_{song}_time')
+			f'song:{song}',
+			f'rating:{user.name}.{song}',
+			f'rating:{neighbor.name}.{song}',
+			f'time:{user.name}.{song}',
+			f'time:{neighbor.name}.{song}')
 		logger.debug('Retrieved song features, ratings, and timestamps')
-		ratings = self.float_array([u_rating, ne_rating])
+		ratings = float_array([u_rating, ne_rating])
 		logger.debug(_format(ratings, 'rating'))
-		deltas = self.float_array([self.delta(u_time), self.delta(ne_time)])
+		deltas = float_array([self.delta(u_time), self.delta(ne_time)])
 		logger.debug(_format(deltas, 'time delta'))
 		ratings = capacitive(ratings, deltas)
 		logger.debug(_format(ratings, 'capacitive rating'))
-		biases = self.float_array([user.bias, 1 - user.bias])
+		biases = float_array([user.bias, 1 - user.bias])
 		logger.debug(_format(biases, 'bias'))
-		similarity = self.float_array([
+		similarity = float_array([
 			1 / (1 + self._metric(user.taste, features)),
 			1 / (1 + self._metric(neighbor.taste, features))])
 		logger.debug(_format(similarity, 'similarity'))
@@ -324,10 +347,6 @@ class Recommender:
 		logger.debug(
 			f'Adjusted rating of user {user.name}: {round(rating, 3)}')
 		return rating
-
-	@staticmethod
-	def float_array(__x):
-		return np.array(__x, dtype=np.float32)
 
 	@staticmethod
 	def delta(timestamp: Union[str, float]) -> float:
@@ -349,41 +368,22 @@ class Recommender:
 		else:
 			logger.warning(f'Failed to cache {name}')
 
-	@staticmethod
-	async def get_cached_ratings(
-			user: User, neighbor: User, cluster: int) -> Tuple:
-		if ratings := await redis.get(user.as_cluster_key(neighbor, cluster)):
-			logger.info(
-				f'Using cached song ratings for cluster {cluster} between '
-				f'user {user.name} and neighbor {neighbor.name}')
-			ratings: np.ndarray = mp.unpackb(ratings)
-			songs = np.array(list(await redis.smembers(f'cluster_{cluster}')))
-			if (n_ratings := ratings.size) != (n_songs := songs.size):
-				trunc = min(n_ratings, n_songs)
-				songs, ratings = songs[trunc], ratings[trunc]
-				logger.warning(
-					f'Number of ratings ({n_ratings}) does not equal the '
-					f'number of songs ({n_songs}). Using the first {trunc} '
-					f'songs and ratings')
-		else:
-			songs, ratings = None, None
-		return songs, ratings
-
 	async def compute_song_ratings(
-			self, user: User, neighbor: User, cluster: int) -> Tuple:
+			self,
+			user: User,
+			neighbor: User,
+			cluster: int) -> Tuple[np.ndarray, np.ndarray]:
+		"""Computes the song ratings for a given user, neighbor, and cluster"""
 		songs, ratings = [], []
-		idx = 0
-		async for song in redis.sscan(f'cluster_{cluster}'):
-			rating = self.adj_rating(user, neighbor, song)
-			songs[idx], ratings[idx] = song, rating
-			idx += 1
-		logger.debug(f'Number of songs in cluster {cluster}: {idx}')
-		songs, ratings = np.array(songs), np.array(ratings)
+		async for song in redis.sscan(f'cluster:{cluster}'):
+			songs.append(song)
+			ratings.append(await self.adj_rating(user, neighbor, song))
+		logger.debug(f'Number of songs in cluster {cluster}: {len(ratings)}')
 		logger.info(
 			f'Caching the ratings for cluster {cluster} between user '
 			f'{user.name} and neighbor {neighbor.name}')
-		key = user.as_cluster_key(neighbor, cluster)
-		ratings = mp.packb(ratings)
-		result = await redis.set(key, ratings, expire=_DAY_IN_SECS)
+		key = user.as_ratings_key(neighbor, cluster)
+		cached = {'value': (songs, ratings), 'time': _NOW.timestamp()}
+		result = await redis.set(key, json.dumps(cached), expire=_DAY_IN_SECS)
 		self.log_cache_event(result, 'the ratings', _DAY_IN_SECS)
-		return songs, ratings
+		return np.array(songs), np.array(ratings)
