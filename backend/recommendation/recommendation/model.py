@@ -43,13 +43,10 @@ class RecommendDB:
 		self._redis.close()
 
 	def get(self, *k: str) -> Any:
-		if isinstance(k, Sequence):
-			value = self._redis.mget(*k)
-		else:
-			value = self._redis.get(k)
-		return value
+		db = self._redis
+		return db.mget(*k) if isinstance(k, Sequence) else db.get(k)
 
-	def set(self, k: str, v: str, expire: int = util.DAY_IN_SECS) -> bool:
+	def set(self, k: str, v: str, expire: int = None) -> bool:
 		return self._redis.set(k, v, ex=expire)
 
 	def cache(self, key: str, value: Any, expire: int = util.DAY_IN_SECS):
@@ -59,12 +56,12 @@ class RecommendDB:
 		self._log_cache_event(result, key, expire)
 
 	@staticmethod
-	def _log_cache_event(result: bool, name: str, exp: int = None):
+	def _log_cache_event(result: bool, name: str, expire: int = None):
 		if result:
-			if exp is None:
+			if expire is None:
 				logger.info(f'Successfully cached {name} without expiration')
 			else:
-				logger.info(f'Successfully cached {name} for {exp} seconds')
+				logger.info(f'Successfully cached {name} for {expire} seconds')
 		else:
 			logger.warning(f'Failed to cache {name}')
 
@@ -98,8 +95,8 @@ class RecommendDB:
 	def get_clusters(self) -> Iterable:
 		return self._redis.scan_iter(match='cluster:*')
 
-	def get_clusters_expiration(self):
-		return self.get('ctime')
+	def get_clusters_expiration(self) -> float:
+		return float(self.get('ctime'))
 
 	def get_features_and_ratings(
 			self, user: str, ne: str, song: str) -> Tuple:
