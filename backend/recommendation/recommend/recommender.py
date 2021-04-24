@@ -45,7 +45,7 @@ class User:
 	def retrieve(self) -> NoReturn:
 		logger.info(f'Retrieving attributes of user {self.name}')
 		attrs = [self.taste, self.bias, self.rad]
-		keys = np.array([self.taste_key, self.bias_key, self.rad_key])
+		keys = (self.taste_key, self.bias_key, self.rad_key)
 		if not any(values := await redis.mget(*keys)):
 			raise exceptions.UserNotFoundError(f'Unable to find {self.name}')
 		if not all(values):
@@ -303,10 +303,17 @@ class Recommender:
 		logger.info(f'Caching number of clusters: {i}')
 		logger.info(f'Caching cluster scores: {scores}')
 		key = user.as_scores_key(neighbor)
-		cached = {'value': scores.tolist(), 'time': _NOW.timestamp()}
-		result = await redis.set(key, cached, expire=_DAY_IN_SECS)
+		serialized = self.serialize(scores.tolist())
+		result = await redis.set(key, serialized, expire=_DAY_IN_SECS)
 		self.log_cache_event(result, 'cluster scores', _DAY_IN_SECS)
 		return scores
+
+	@staticmethod
+	def serialize(value: Any) -> str:
+		logger.debug(f'Serializing: {value}')
+		serialized = json.dumps({'value': value, 'time': _NOW.timestamp()})
+		logger.debug(f'Serialized: {serialized}')
+		return serialized
 
 	async def adj_rating(self, user: User, neighbor: User, song: str) -> int:
 		"""Computes a context-based adjusted rating of a song."""
@@ -351,8 +358,8 @@ class Recommender:
 	@staticmethod
 	def delta(timestamp: Union[str, float]) -> float:
 		"""Returns the difference in days between a timestamp and now."""
-		timestamp = float(timestamp)
 		logger.debug(f'Computing time delta of timestamp {timestamp}')
+		timestamp = float(timestamp)
 		delta = _NOW - datetime.datetime.utcfromtimestamp(timestamp)
 		delta = delta.total_seconds() / _DAY_IN_SECS
 		logger.debug(f'Computed time delta (days): {delta}')
@@ -383,7 +390,7 @@ class Recommender:
 			f'Caching the ratings for cluster {cluster} between user '
 			f'{user.name} and neighbor {neighbor.name}')
 		key = user.as_ratings_key(neighbor, cluster)
-		cached = {'value': (songs, ratings), 'time': _NOW.timestamp()}
-		result = await redis.set(key, json.dumps(cached), expire=_DAY_IN_SECS)
+		serialized = self.serialize((songs, ratings))
+		result = await redis.set(key, serialized, expire=_DAY_IN_SECS)
 		self.log_cache_event(result, 'the ratings', _DAY_IN_SECS)
 		return np.array(songs), np.array(ratings)
