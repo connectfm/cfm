@@ -1,4 +1,5 @@
 import aioredis
+import asyncio
 import attr
 import datetime
 import json
@@ -22,8 +23,6 @@ _NUM_RANDOM_USERS = 100
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-redis = await aioredis.create_redis_pool('redis://localhost')
-
 
 def float_array(__x):
 	return np.array(__x, dtype=np.float32)
@@ -42,7 +41,7 @@ class User:
 		if self.taste is not None:
 			self.taste = np.array(self.taste)
 
-	def retrieve(self) -> NoReturn:
+	async def retrieve(self, redis: aioredis.Redis) -> NoReturn:
 		logger.info(f'Retrieving attributes of user {self.name}')
 		attrs = [self.taste, self.bias, self.rad]
 		keys = (self.taste_key, self.bias_key, self.rad_key)
@@ -262,7 +261,7 @@ class Recommender:
 		if data := await redis.get(key):
 			data = json.loads(data)
 			value, timestamp = data['value'], data['time']
-			if Recommender.is_valid(timestamp):
+			if await Recommender.is_valid(timestamp):
 				logger.info(
 					f'Using cached {key} between user {user.name} and '
 					f'neighbor {neighbor.name}')
@@ -274,7 +273,7 @@ class Recommender:
 		return value
 
 	@staticmethod
-	def is_valid(timestamp: float) -> bool:
+	async def is_valid(timestamp: float) -> bool:
 		valid = True
 		if c_time := await redis.get('ctime'):
 			valid = timestamp > c_time
@@ -394,3 +393,17 @@ class Recommender:
 		result = await redis.set(key, serialized, expire=_DAY_IN_SECS)
 		self.log_cache_event(result, 'the ratings', _DAY_IN_SECS)
 		return np.array(songs), np.array(ratings)
+
+
+async def main():
+	redis = await aioredis.create_redis_pool(('localhost', 6379))
+	await redis.set('my-key', 'value')
+	value = await redis.get('my-key')
+	print(value)
+
+	redis.close()
+	await redis.wait_closed()
+
+
+if __name__ == '__main__':
+	asyncio.run(main())
