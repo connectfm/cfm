@@ -1,4 +1,3 @@
-import asyncio
 import jsonpickle
 import logging
 import os
@@ -20,11 +19,11 @@ def handle(event, context):
 	logger.debug(f'## ENV VARS\n{jsonpickle.encode(dict(**os.environ))}')
 	logger.debug(f'## EVENT\n{jsonpickle.encode(event)}')
 	logger.debug(f'## CONTEXT\n{jsonpickle.encode(context)}')
-	recommendation = asyncio.run(_handle(event['body']))
+	recommendation = _handle(event['body'])
 	return {'body': recommendation, 'statusCode': 200}
 
 
-async def _handle(user: str) -> str:
-	async with model.RecommendDB(SEED) as db:
+def _handle(user: str) -> str:
+	with model.RecommendDB(SEED) as db:
 		rec = recommend.Recommender(db, max_clusters=MAX_CLUSTERS, seed=SEED)
-		return await rec.recommend(user)
+		return rec.recommend(user)

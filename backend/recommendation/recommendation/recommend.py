@@ -27,16 +27,16 @@ class Recommender:
 		logger.debug(f'Distance metric: {self.metric}')
 		logger.debug(f'Seed: {self.seed}')
 
-	async def recommend(self, name: str) -> str:
+	def recommend(self, name: str) -> str:
 		"""Returns a recommended song based on a user."""
 		logger.info(f'Retrieving a recommendation for user {name}')
-		if (user := await self.db.get_user(name)).taste is None:
+		if (user := self.db.get_user(name)).taste is None:
 			logger.warning(
 				f'Unable to find the taste of user {user.name}. Using a taste '
 				'from a random user')
-			user.taste = await self.db.get_random_taste()
-		if (neighbors := await self.db.get_neighbors(user)).size > 0:
-			neighbors, tastes = await self.db.get_tastes(*neighbors)
+			user.taste = self.db.get_random_taste()
+		if (neighbors := self.db.get_neighbors(user)).size > 0:
+			neighbors, tastes = self.db.get_tastes(*neighbors)
 			if neighbors.size > 0:
 				ne = self.sample_neighbor(user, neighbors, tastes)
 			else:
@@ -51,8 +51,7 @@ class Recommender:
 				f'within the set radius. Using user {user.name} as their own '
 				f'neighbor')
 			ne = user
-		song = await self.sample_song(user, ne)
-		return song
+		return self.sample_song(user, ne)
 
 	def sample_neighbor(
 			self,
@@ -66,37 +65,35 @@ class Recommender:
 		similarity = 1 / (1 + dissimilarity)
 		ne, idx = util.sample(neighbors, similarity, with_index=True)
 		logger.info(f'Sampled neighbor {ne}')
-		ne = model.User(ne, taste=tastes[idx])
-		return ne
+		return model.User(ne, taste=tastes[idx])
 
-	async def sample_song(self, user: model.User, ne: model.User) -> str:
+	def sample_song(self, user: model.User, ne: model.User) -> str:
 		"""Returns a song based on user and neighbor contexts."""
-		cluster = await self.sample_cluster(user, ne)
+		cluster = self.sample_cluster(user, ne)
 		logger.info(f'Sampling a song to recommendation')
 		key = self.db.to_ratings_key(user.name, ne.name, cluster)
-		if cached := await self.db.get_cached(key):
+		if cached := self.db.get_cached(key):
 			songs, ratings = cached
 			songs, ratings = np.array(songs), util.float_array(ratings)
 		else:
-			songs, ratings = await self.compute_ratings(user, ne, cluster)
+			songs, ratings = self.compute_ratings(user, ne, cluster)
 		song = util.sample(songs, ratings)
 		logger.info(f'Sampled song {song}')
 		return song
 
-	async def sample_cluster(self, user: model.User, ne: model.User) -> int:
+	def sample_cluster(self, user: model.User, ne: model.User) -> int:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommendation a song')
 		key = self.db.to_scores_key(user.name, ne.name)
-		if scores := await self.db.get_cached(key):
+		if scores := self.db.get_cached(key):
 			scores = util.float_array(scores)
 		else:
-			scores = await self.compute_scores(user, ne)
+			scores = self.compute_scores(user, ne)
 		cluster = util.sample(np.arange(scores.size), scores)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
 
-	async def compute_scores(
-			self, user: model.User, ne: model.User) -> np.ndarray:
+	def compute_scores(self, user: model.User, ne: model.User) -> np.ndarray:
 		"""Computes cluster scores and caches the result"""
 		logger.info(
 			f'Computing cluster scores between user {user.name} and neighbor '
@@ -104,9 +101,9 @@ class Recommender:
 		scores = np.zeros(self.max_clusters)
 		per_cluster = np.zeros(self.max_clusters)
 		i = 0
-		async for cluster in self.db.get_clusters():
-			async for song in self.db.get_songs(cluster):
-				scores[i] += await self.adj_rating(user, ne, song)
+		for cluster in self.db.get_clusters():
+			for song in self.db.get_songs(cluster):
+				scores[i] += self.adj_rating(user, ne, song)
 				per_cluster[i] += 1
 			i += 1
 		scores = scores[np.flatnonzero(scores)]
@@ -115,11 +112,10 @@ class Recommender:
 		logger.debug(f'Number of songs: {sum(per_cluster)}')
 		logger.debug(f'Number of songs per cluster: {per_cluster}')
 		key = self.db.to_scores_key(user.name, ne.name)
-		await self.db.cache(key, scores.tolist())
+		self.db.cache(key, scores.tolist())
 		return scores
 
-	async def adj_rating(
-			self, user: model.User, ne: model.User, song: str) -> int:
+	def adj_rating(self, user: model.User, ne: model.User, song: str) -> int:
 		"""Computes a context-based adjusted rating of a song."""
 		logger.debug(
 			f'Computing the adjusted rating of {song} based on user '
@@ -134,7 +130,7 @@ class Recommender:
 			u, n = round(arr[0], d), round(arr[1], d)
 			return f'User (neighbor) {label}: {u} ({n})'
 
-		result = await self.db.get_feats_and_ratings(user.name, ne.name, song)
+		result = self.db.get_features_and_ratings(user.name, ne.name, song)
 		features, (u_rating, ne_rating), (u_time, ne_time) = result
 		ratings = util.float_array([u_rating, ne_rating])
 		logger.debug(_format(ratings, 'rating'))
@@ -153,17 +149,17 @@ class Recommender:
 			f'Adjusted rating of user {user.name}: {round(rating, 3)}')
 		return rating
 
-	async def compute_ratings(
+	def compute_ratings(
 			self,
 			user: model.User,
 			ne: model.User,
 			cluster: int) -> Tuple[np.ndarray, np.ndarray]:
 		"""Computes the song ratings for a given user, neighbor, and cluster"""
 		songs, ratings = [], []
-		async for song in self.db.get_songs(cluster):
+		for song in self.db.get_songs(cluster):
 			songs.append(song)
-			ratings.append(await self.adj_rating(user, ne, song))
+			ratings.append(self.adj_rating(user, ne, song))
 		logger.debug(f'Number of songs in cluster {cluster}: {len(ratings)}')
 		key = self.db.to_ratings_key(user.name, ne.name, cluster)
-		await self.db.cache(key, (songs, ratings))
+		self.db.cache(key, (songs, ratings))
 		return np.array(songs), util.float_array(ratings)

@@ -1,4 +1,3 @@
-import aioredis
 import attr
 import json
 import logging
@@ -6,7 +5,8 @@ import msgpack_numpy as mp
 import numbers
 import numpy as np
 import random
-from typing import Any, AsyncIterable, Sequence, Tuple, Union
+import redis
+from typing import Any, Iterable, Sequence, Tuple, Union
 
 import util
 
@@ -28,36 +28,35 @@ class User:
 class RecommendDB:
 	seed = attr.ib(type=Any, default=None)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
-	_redis = attr.ib(type=aioredis.Redis, init=False, repr=False)
+	_redis = attr.ib(type=redis.Redis, init=False, repr=False)
 
 	def __attrs_post_init__(self):
 		random.seed(self.seed)
 		self._rng = np.random.default_rng(self.seed)
 		logger.debug(f'Seed: {self.seed}')
 
-	async def __aenter__(self):
-		self._redis = await aioredis.create_redis_pool(('localhost', 6379))
+	def __enter__(self):
+		self._redis = redis.Redis(decode_responses=True)
 		return self
 
-	async def __aexit__(self, exc_type, exc_val, exc_tb):
+	def __exit__(self, exc_type, exc_val, exc_tb):
 		self._redis.close()
-		await self._redis.wait_closed()
 
-	async def get(self, *k: str) -> Any:
+	def get(self, *k: str) -> Any:
 		if isinstance(k, Sequence):
-			value = self._redis.mget(*k, encoding='utf-8')
+			value = self._redis.mget(*k)
 		else:
-			value = self._redis.get(k, encoding='utf-8')
+			value = self._redis.get(k)
 		return value
 
-	async def set(self, k: str, v: str, exp: int = util.DAY_IN_SECS) -> bool:
-		return self._redis.set(k, v, expire=exp)
+	def set(self, k: str, v: str, expire: int = util.DAY_IN_SECS) -> bool:
+		return self._redis.set(k, v, ex=expire)
 
-	async def cache(self, key: str, value: Any, exp: int = util.DAY_IN_SECS):
+	def cache(self, key: str, value: Any, expire: int = util.DAY_IN_SECS):
 		logger.debug(f'Caching {key} with value {value}')
 		serialized = json.dumps({'value': value, 'time': util.NOW.timestamp()})
-		result = await self.set(key, serialized, exp=exp)
-		self._log_cache_event(result, key, exp)
+		result = self.set(key, serialized, expire=expire)
+		self._log_cache_event(result, key, expire)
 
 	@staticmethod
 	def _log_cache_event(result: bool, name: str, exp: int = None):
@@ -69,13 +68,13 @@ class RecommendDB:
 		else:
 			logger.warning(f'Failed to cache {name}')
 
-	async def get_cached(self, k: str) -> Any:
+	def get_cached(self, k: str) -> Any:
 		"""Returns the cached value"""
 		value = None
-		if data := await self.get(k):
+		if data := self.get(k):
 			data = json.loads(data)
 			value, timestamp = data['value'], data['time']
-			if await self._is_valid(timestamp):
+			if self._is_valid(timestamp):
 				logger.info(f'Using cached the value of {k}')
 			else:
 				logger.warning(f'Clusters have been updated since caching {k}')
@@ -83,9 +82,9 @@ class RecommendDB:
 			logger.warning(f'Cached value of {k} does not exist')
 		return value
 
-	async def _is_valid(self, timestamp: float) -> bool:
+	def _is_valid(self, timestamp: float) -> bool:
 		valid = True
-		if c_time := await self.get_clusters_expiration():
+		if c_time := self.get_clusters_expiration():
 			valid = timestamp > c_time
 		else:
 			logger.warning(
@@ -93,33 +92,33 @@ class RecommendDB:
 				'the associated value is still representative')
 		return valid
 
-	def get_songs(self, cluster: Union[str, int]) -> AsyncIterable:
-		return self._redis.sscan(f'cluster:{cluster}')
+	def get_songs(self, cluster: Union[str, int]) -> Iterable:
+		return self._redis.sscan_iter(f'cluster:{cluster}')
 
-	def get_clusters(self) -> AsyncIterable:
-		return self._redis.iscan(match='cluster:*')
+	def get_clusters(self) -> Iterable:
+		return self._redis.scan_iter(match='cluster:*')
 
-	async def get_clusters_expiration(self):
-		return await self.get('ctime')
+	def get_clusters_expiration(self):
+		return self.get('ctime')
 
-	async def get_feats_and_ratings(
+	def get_features_and_ratings(
 			self, user: str, ne: str, song: str) -> Tuple:
 		logger.debug('Retrieving song features, ratings, and timestamps')
-		feats, u_rating, ne_rating, u_time, ne_time = await self.get(
+		features, u_rating, ne_rating, u_time, ne_time = self.get(
 			self.to_song_key(song),
 			self.to_rating_key(user, song),
 			self.to_rating_key(ne, song),
 			self.to_time_key(user, song),
 			self.to_time_key(ne, song))
 		logger.debug('Retrieved song features, ratings, and timestamps')
-		return feats, (u_rating, ne_rating), (u_time, ne_time)
+		return features, (u_rating, ne_rating), (u_time, ne_time)
 
-	async def get_random_taste(self, n: int = 100):
+	def get_random_taste(self, n: int = 100):
 		logger.info(
 			'Randomly retrieving the music taste from one of the first '
 			f'{n} users')
 		i, stop, taste = 0, self._rng.integers(n), None
-		async for t in self._redis.scan(match=self.to_taste_key('*')):
+		for t in self._redis.scan_iter(match=self.to_taste_key('*')):
 			if i > stop:
 				break
 			else:
@@ -130,10 +129,10 @@ class RecommendDB:
 		else:
 			return util.float_array(mp.unpackb(taste))
 
-	async def get_tastes(self, *users: str) -> Tuple[np.ndarray, np.ndarray]:
+	def get_tastes(self, *users: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the taste vectors of one or more users."""
 		logger.info(f'Retrieving the music tastes of {len(users)} neighbors')
-		tastes = await self.get(*(self.to_taste_key(u) for u in users))
+		tastes = self.get(*(self.to_taste_key(u) for u in users))
 		if missing := [t for t in tastes if t is None]:
 			logger.warning(
 				f'Unable to find tastes for {len(missing)} of {len(users)} '
@@ -144,7 +143,7 @@ class RecommendDB:
 			tastes = util.float_array([mp.unpackb(t) for _, t in present])
 		return users, tastes
 
-	async def get_neighbors(self, user: User) -> np.ndarray:
+	def get_neighbors(self, user: User) -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
 		logger.info(f'Finding the neighbors of user {user.name}')
 		if all((user.long, user.lat, user.rad)):
@@ -156,14 +155,14 @@ class RecommendDB:
 			ne = []
 		return np.array(ne)
 
-	async def get_user(self, name: str) -> User:
+	def get_user(self, name: str) -> User:
 		"""Returns a user with all associated attributes populated"""
 		logger.info(f'Retrieving attributes of user {name}')
 		keys = (
 			self.to_taste_key(name),
 			self.to_bias_key(name),
 			self.to_radius_key(name))
-		if not any(values := await self.get(*keys)):
+		if not any(values := self.get(*keys)):
 			raise KeyError(f'Unable to find user {name}')
 		if not all(values):
 			logger.warning(
@@ -171,7 +170,7 @@ class RecommendDB:
 				f'{[k for k, v in zip(keys, values) if v is None]}')
 		taste, bias, radius = values
 		key = self.get_geolocation_key()
-		if not (loc := await self._redis.geopos(key, name)):
+		if not (loc := self._redis.geopos(key, name)):
 			logger.warning(f'Unable to find the location of user {name}')
 		return User(
 			name=name,
