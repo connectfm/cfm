@@ -8,7 +8,7 @@ import recommend
 
 MAX_CLUSTERS = int(os.getenv('MAX_CLUSTERS', default=100))
 SEED = os.getenv('SEED')
-LOG_LEVEL = os.getenv('LOG_LEVEL', default=logging.DEBUG)
+LOG_LEVEL = os.getenv('LOG_LEVEL', default=logging.INFO)
 
 logging.basicConfig(format='%(levelname)s: %(message)s', level=LOG_LEVEL)
 logger = logging.getLogger(__name__)
