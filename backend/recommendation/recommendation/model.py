@@ -6,7 +6,7 @@ import msgpack_numpy as mp
 import numbers
 import numpy as np
 import random
-from typing import Any, AsyncIterable, Tuple, Union
+from typing import Any, AsyncIterable, Sequence, Tuple, Union
 
 import util
 
@@ -35,16 +35,20 @@ class RecommendDB:
 		self._rng = np.random.default_rng(self.seed)
 		logger.debug(f'Seed: {self.seed}')
 
-	def __aenter__(self):
+	async def __aenter__(self):
 		self._redis = await aioredis.create_redis_pool(('localhost', 6379))
 		return self
 
-	def __aexit__(self, exc_type, exc_val, exc_tb):
+	async def __aexit__(self, exc_type, exc_val, exc_tb):
 		self._redis.close()
 		await self._redis.wait_closed()
 
 	async def get(self, *k: str) -> Any:
-		return self._redis.mget(*k, encoding='utf-8')
+		if isinstance(k, Sequence):
+			value = self._redis.mget(*k, encoding='utf-8')
+		else:
+			value = self._redis.get(k, encoding='utf-8')
+		return value
 
 	async def set(self, k: str, v: str, exp: int = util.DAY_IN_SECS) -> bool:
 		return self._redis.set(k, v, expire=exp)

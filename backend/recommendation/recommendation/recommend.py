@@ -17,7 +17,7 @@ class Recommender:
 	"""Recommendation system for connect.fm"""
 	db = attr.ib(type=model.RecommendDB)
 	metric = attr.ib(type=Callable, default=distance.euclidean)
-	max_num_clusters = attr.ib(type=int, default=100)
+	max_clusters = attr.ib(type=int, default=100)
 	seed = attr.ib(type=Any, default=None)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
 
@@ -72,7 +72,7 @@ class Recommender:
 	async def sample_song(self, user: model.User, ne: model.User) -> str:
 		"""Returns a song based on user and neighbor contexts."""
 		cluster = await self.sample_cluster(user, ne)
-		logger.info(f'Sampling a song to recommend')
+		logger.info(f'Sampling a song to recommendation')
 		key = self.db.to_ratings_key(user.name, ne.name, cluster)
 		if cached := await self.db.get_cached(key):
 			songs, ratings = cached
@@ -85,7 +85,7 @@ class Recommender:
 
 	async def sample_cluster(self, user: model.User, ne: model.User) -> int:
 		"""Returns a cluster based on user and neighbor contexts."""
-		logger.info('Sampling a cluster from which to recommend a song')
+		logger.info('Sampling a cluster from which to recommendation a song')
 		key = self.db.to_scores_key(user.name, ne.name)
 		if scores := await self.db.get_cached(key):
 			scores = util.float_array(scores)
@@ -101,8 +101,8 @@ class Recommender:
 		logger.info(
 			f'Computing cluster scores between user {user.name} and neighbor '
 			f'{ne.name}')
-		scores = np.zeros(self.max_num_clusters)
-		per_cluster = np.zeros(self.max_num_clusters)
+		scores = np.zeros(self.max_clusters)
+		per_cluster = np.zeros(self.max_clusters)
 		i = 0
 		async for cluster in self.db.get_clusters():
 			async for song in self.db.get_songs(cluster):
