@@ -90,7 +90,7 @@ lint/tmp/
 *.hprof
 spotify-auth/
 spotify-app-remote/
-    
+
 #NDK
 obj/
 .externalNativeBuild
@@ -101,3 +101,6 @@ app/build/intermediates
 *.bin
 *.lock
 app/build/tmp/compileDebugJavaWithJavac/source-classes-mapping.txt
+
+# Python venv
+venv/
