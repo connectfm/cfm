@@ -1,12 +1,13 @@
 import attr
-import json
+import codecs
 import logging
 import msgpack_numpy as mp
 import numbers
 import numpy as np
+import pickle
 import random
 import redis
-from typing import Any, Iterable, Sequence, Tuple, Union
+from typing import Any, Callable, Iterable, List, Tuple, Union
 
 import util
 
@@ -36,23 +37,37 @@ class RecommendDB:
 		logger.debug(f'Seed: {self.seed}')
 
 	def __enter__(self):
-		self._redis = redis.Redis(decode_responses=True)
+		self._redis = redis.Redis()
 		return self
 
 	def __exit__(self, exc_type, exc_val, exc_tb):
 		self._redis.close()
 
-	def get(self, *k: str) -> Any:
-		db = self._redis
-		return db.mget(*k) if isinstance(k, Sequence) else db.get(k)
+	def get(self, *k: str, decoder: Union[Callable, str] = None) -> Any:
+		def decode(x):
+			if isinstance(decoder, str):
+				x = codecs.decode(x, decoder)
+			elif isinstance(decoder, Callable):
+				x = decoder(x)
+			return x
 
-	def set(self, k: str, v: str, expire: int = None) -> bool:
+		db = self._redis
+		if (item := db.get(k[0]) if len(k) == 1 else db.mget(*k)) is not None:
+			if isinstance(item, (List, Tuple)):
+				item = tuple(decode(i) for i in item)
+			else:
+				item = decode(item)
+		return item
+
+	def set(self, k: str, v: Union[str, bytes], expire: int = None) -> bool:
 		return self._redis.set(k, v, ex=expire)
 
 	def cache(self, key: str, value: Any, expire: int = util.DAY_IN_SECS):
 		logger.debug(f'Caching {key} with value {value}')
-		serialized = json.dumps({'value': value, 'time': util.NOW.timestamp()})
-		result = self.set(key, serialized, expire=expire)
+		if isinstance(value, np.ndarray):
+			value = value.tolist()
+		serialized = {'value': value, 'time': util.NOW.timestamp()}
+		result = self.set(key, pickle.dumps(serialized), expire=expire)
 		self._log_cache_event(result, key, expire)
 
 	@staticmethod
@@ -68,8 +83,7 @@ class RecommendDB:
 	def get_cached(self, k: str) -> Any:
 		"""Returns the cached value"""
 		value = None
-		if data := self.get(k):
-			data = json.loads(data)
+		if data := self.get(k, decoder=pickle.loads):
 			value, timestamp = data['value'], data['time']
 			if self._is_valid(timestamp):
 				logger.info(f'Using cached the value of {k}')
@@ -90,25 +104,31 @@ class RecommendDB:
 		return valid
 
 	def get_songs(self, cluster: Union[str, int]) -> Iterable:
-		return self._redis.sscan_iter(f'cluster:{cluster}')
+		songs = self._redis.sscan_iter(f'cluster:{cluster}')
+		return (s.decode('utf-8') for s in songs)
 
 	def get_clusters(self) -> Iterable:
 		return self._redis.scan_iter(match='cluster:*')
 
 	def get_clusters_expiration(self) -> float:
-		return float(self.get('ctime'))
+		return self.get('ctime', decoder=util.float_decoder)
 
-	def get_features_and_ratings(
-			self, user: str, ne: str, song: str) -> Tuple:
-		logger.debug('Retrieving song features, ratings, and timestamps')
-		features, u_rating, ne_rating, u_time, ne_time = self.get(
-			self.to_song_key(song),
+	def get_features(self, song_or_user: str) -> np.ndarray:
+		logger.debug(f'Retrieving song features for {song_or_user}')
+		return util.float_array(self.get(song_or_user, decoder=mp.unpackb))
+
+	def get_ratings(self, user: str, ne: str, song: str) -> Tuple:
+		logger.debug(
+			f'Retrieving ratings, and timestamps for user {user} and neighbor '
+			f'{ne}')
+		u_rating, ne_rating, u_time, ne_time = self.get(
 			self.to_rating_key(user, song),
 			self.to_rating_key(ne, song),
 			self.to_time_key(user, song),
-			self.to_time_key(ne, song))
-		logger.debug('Retrieved song features, ratings, and timestamps')
-		return features, (u_rating, ne_rating), (u_time, ne_time)
+			self.to_time_key(ne, song),
+			decoder=util.float_decoder)
+		logger.debug('Retrieved ratings, and timestamps')
+		return (u_rating, ne_rating), (u_time, ne_time)
 
 	def get_random_taste(self, n: int = 100):
 		logger.info(
@@ -129,7 +149,8 @@ class RecommendDB:
 	def get_tastes(self, *users: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the taste vectors of one or more users."""
 		logger.info(f'Retrieving the music tastes of {len(users)} neighbors')
-		tastes = self.get(*(self.to_taste_key(u) for u in users))
+		tastes = (self.to_taste_key(u) for u in users)
+		tastes = self.get(*tastes, decoder=mp.unpackb)
 		if missing := [t for t in tastes if t is None]:
 			logger.warning(
 				f'Unable to find tastes for {len(missing)} of {len(users)} '
@@ -137,7 +158,7 @@ class RecommendDB:
 				f'users with missing tastes: {missing}')
 			present = [(u, t) for u, t in zip(users, tastes) if t is not None]
 			users = np.array([u for u, _ in present])
-			tastes = util.float_array([mp.unpackb(t) for _, t in present])
+			tastes = util.float_array([t for _, t in present])
 		return users, tastes
 
 	def get_neighbors(self, user: User) -> np.ndarray:
@@ -146,6 +167,10 @@ class RecommendDB:
 		if all((user.long, user.lat, user.rad)):
 			ne = self._redis.georadius(
 				user.name, user.long, user.lat, user.rad)
+			if ne is None:
+				ne = []
+			elif isinstance(ne[0], bytes):
+				ne = [n.decode('utf-8') for n in ne]
 			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
 		else:
 			logger.warning(f'Unable to find the location of user {user.name}')
@@ -155,27 +180,24 @@ class RecommendDB:
 	def get_user(self, name: str) -> User:
 		"""Returns a user with all associated attributes populated"""
 		logger.info(f'Retrieving attributes of user {name}')
-		keys = (
-			self.to_taste_key(name),
-			self.to_bias_key(name),
-			self.to_radius_key(name))
-		if not any(values := self.get(*keys)):
+		taste = self.get_features(taste_key := self.to_taste_key(name))
+		bias_and_radius = (self.to_bias_key(name), self.to_radius_key(name))
+		bias, radius = self.get(*bias_and_radius, decoder=util.float_decoder)
+		if not any(values := (taste, bias, radius)):
 			raise KeyError(f'Unable to find user {name}')
 		if not all(values):
+			keys = [taste_key, *bias_and_radius]
 			logger.warning(
 				f'Unable to find all attributes of user {name}: '
 				f'{[k for k, v in zip(keys, values) if v is None]}')
-		taste, bias, radius = values
-		key = self.get_geolocation_key()
-		if not (loc := self._redis.geopos(key, name)):
+		if loc := self._redis.geopos(self.get_geolocation_key(), name):
+			long, lat = loc
+			long, lat, float(long), float(lat)
+		else:
 			logger.warning(f'Unable to find the location of user {name}')
+			long, lat = None, None
 		return User(
-			name=name,
-			taste=util.float_array(mp.unpackb(taste)),
-			bias=np.float32(bias),
-			long=np.float64(loc[0]),
-			lat=np.float64(loc[1]),
-			rad=np.float32(radius))
+			name=name, taste=taste, bias=bias, long=long, lat=lat, rad=radius)
 
 	@classmethod
 	def get_geolocation_key(cls):
