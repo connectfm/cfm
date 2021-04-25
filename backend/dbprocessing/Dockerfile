@@ -14,7 +14,7 @@ COPY requirements.txt ${LAMBDA_TASK_ROOT}/
 RUN pip install -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
 # Copy required modules and packages
-COPY dbprocessing/ ${LAMBDA_TASK_ROOT}
+COPY dbprocessing ${LAMBDA_TASK_ROOT}
 
 # Lambda handler
 CMD ["app.handle"]

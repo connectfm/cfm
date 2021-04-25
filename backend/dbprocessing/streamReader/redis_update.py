@@ -126,7 +126,13 @@ def build_feature_array(img: dict):
     features = np.zeros(len(FEATURE_LOOKUP))
     for attr in img:
         if attr != "Id":
-            features[FEATURE_LOOKUP[attr]] = val_loads(img[attr])
+            value = val_loads(img[attr])
+            # Hard coded max values for Loudness & Tempo
+            if attr == "Loudness": # Max of 0, range: [-60, 0]
+                value = min(0, value)
+            elif attr == "Tempo": # Max of 150, range: [50, 150]
+                value = min(150, value)
+            features[FEATURE_LOOKUP[attr]] = value
     return features
 
 
