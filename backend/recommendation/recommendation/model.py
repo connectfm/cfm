@@ -7,11 +7,11 @@ import numpy as np
 import pickle
 import random
 import redis
-from typing import Any, Callable, Iterable, List, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
 import util
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -54,13 +54,26 @@ class RecommendDB:
 		db = self._redis
 		if (item := db.get(k[0]) if len(k) == 1 else db.mget(*k)) is not None:
 			if isinstance(item, (List, Tuple)):
-				item = tuple(decode(i) for i in item)
+				item = [i if i is None else decode(i) for i in item]
 			else:
-				item = decode(item)
+				item = item if item is None else decode(item)
 		return item
 
-	def set(self, k: str, v: Union[str, bytes], expire: int = None) -> bool:
+	def set(
+			self,
+			k: str,
+			v: Union[str, bytes, numbers.Real],
+			expire: int = None) -> bool:
 		return self._redis.set(k, v, ex=expire)
+
+	def set_location(self, k: str, long: float, lat: float):
+		return self._redis.geoadd(self.get_geolocation_key(), *(long, lat, k))
+
+	def get_location(self, *values: str):
+		return self._redis.geopos(self.get_geolocation_key(), *values)
+
+	def set_cluster(self, k: str, *values: Any):
+		return self._redis.sadd(k, *values)
 
 	def cache(self, key: str, value: Any, expire: int = util.DAY_IN_SECS):
 		logger.debug(f'Caching {key} with value {value}')
@@ -104,18 +117,21 @@ class RecommendDB:
 		return valid
 
 	def get_songs(self, cluster: Union[str, int]) -> Iterable:
-		songs = self._redis.sscan_iter(f'cluster:{cluster}')
+		songs = self._redis.sscan_iter(cluster)
 		return (s.decode('utf-8') for s in songs)
 
 	def get_clusters(self) -> Iterable:
-		return self._redis.scan_iter(match='cluster:*')
+		clusters = self._redis.scan_iter(match=self.to_cluster_key('*'))
+		return (c.decode('utf-8') for c in clusters)
 
 	def get_clusters_expiration(self) -> float:
 		return self.get('ctime', decoder=util.float_decoder)
 
-	def get_features(self, song_or_user: str) -> np.ndarray:
+	def get_features(self, song_or_user: str) -> Optional[np.ndarray]:
 		logger.debug(f'Retrieving song features for {song_or_user}')
-		return util.float_array(self.get(song_or_user, decoder=mp.unpackb))
+		if (feats := self.get(song_or_user, decoder=mp.unpackb)) is not None:
+			feats = util.float_array(feats)
+		return feats
 
 	def get_ratings(self, user: str, ne: str, song: str) -> Tuple:
 		logger.debug(
@@ -166,11 +182,7 @@ class RecommendDB:
 		logger.info(f'Finding the neighbors of user {user.name}')
 		if all((user.long, user.lat, user.rad)):
 			ne = self._redis.georadius(
-				user.name, user.long, user.lat, user.rad)
-			if ne is None:
-				ne = []
-			elif isinstance(ne[0], bytes):
-				ne = [n.decode('utf-8') for n in ne]
+				user.name, user.long, user.lat, user.rad, unit='mi')
 			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
 		else:
 			logger.warning(f'Unable to find the location of user {user.name}')
@@ -183,21 +195,26 @@ class RecommendDB:
 		taste = self.get_features(taste_key := self.to_taste_key(name))
 		bias_and_radius = (self.to_bias_key(name), self.to_radius_key(name))
 		bias, radius = self.get(*bias_and_radius, decoder=util.float_decoder)
-		if not any(values := (taste, bias, radius)):
+		values = (taste, bias, radius)
+		if all(missing := [v is None for v in values]):
 			raise KeyError(f'Unable to find user {name}')
-		if not all(values):
+		if any(missing):
 			keys = [taste_key, *bias_and_radius]
 			logger.warning(
 				f'Unable to find all attributes of user {name}: '
 				f'{[k for k, v in zip(keys, values) if v is None]}')
 		if loc := self._redis.geopos(self.get_geolocation_key(), name):
-			long, lat = loc
+			long, lat = loc[0]
 			long, lat, float(long), float(lat)
 		else:
 			logger.warning(f'Unable to find the location of user {name}')
 			long, lat = None, None
 		return User(
 			name=name, taste=taste, bias=bias, long=long, lat=lat, rad=radius)
+
+	@classmethod
+	def to_cluster_key(cls, c: Union[int, str]) -> str:
+		return f'cluster:{c}'
 
 	@classmethod
 	def get_geolocation_key(cls):

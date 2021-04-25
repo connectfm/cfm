@@ -1,17 +1,16 @@
-import logging
-import random
-from typing import Any, Callable, Tuple
-
 import attr
+import logging
 import numpy as np
+import random
 from scipy.spatial import distance
+from typing import Any, Callable, Tuple
 
 import model
 import util
 
 DEFAULT_RATING = 2
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -86,7 +85,7 @@ class Recommender:
 
 	def sample_cluster(self, user: model.User, ne: model.User) -> int:
 		"""Returns a cluster based on user and neighbor contexts."""
-		logger.info('Sampling a cluster from which to recommendation a song')
+		logger.info('Sampling a cluster from which to recommend a song')
 		key = self.db.to_scores_key(user.name, ne.name)
 		if scores := self.db.get_cached(key):
 			scores = util.float_array(scores)
@@ -136,8 +135,8 @@ class Recommender:
 		(u_rating, ne_rating), (u_time, ne_time) = result
 		u_rating = util.if_none(u_rating, DEFAULT_RATING)
 		ne_rating = util.if_none(ne_rating, DEFAULT_RATING)
-		u_time = util.if_none(u_time, util.NOW)
-		ne_time = util.if_none(ne_time, util.NOW)
+		u_time = util.if_none(u_time, util.NOW.timestamp())
+		ne_time = util.if_none(ne_time, util.NOW.timestamp())
 		ratings = util.float_array([u_rating, ne_rating])
 		logger.debug(_format(ratings, 'rating'))
 		deltas = util.float_array([util.delta(u_time), util.delta(ne_time)])
@@ -146,10 +145,15 @@ class Recommender:
 		logger.debug(_format(ratings, 'capacitive rating'))
 		biases = util.float_array([user.bias, 1 - user.bias])
 		logger.debug(_format(biases, 'bias'))
-		features = self.db.get_features(song)
-		similarity = util.float_array([
-			1 / (1 + self.metric(user.taste, features)),
-			1 / (1 + self.metric(ne.taste, features))])
+		if (features := self.db.get_features(song)) is not None:
+			similarity = util.float_array([
+				1 / (1 + self.metric(user.taste, features)),
+				1 / (1 + self.metric(ne.taste, features))])
+		else:
+			logger.warning(
+				f'Unable to find features for song {song}. Assuming 0 '
+				f'similarity')
+			similarity = util.float_array([0, 0])
 		logger.debug(_format(similarity, 'similarity'))
 		rating = sum(biases * ratings) * sum(biases * similarity)
 		logger.debug(
