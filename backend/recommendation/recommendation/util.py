@@ -1,5 +1,4 @@
 import datetime
-
 import logging
 import numpy as np
 from typing import Any
@@ -17,6 +16,10 @@ def float_array(arr):
 
 def if_none(value, none):
 	return none if value is None else value
+
+
+def float_decoder(b: bytes) -> float:
+	return float(b.decode('utf-8'))
 
 
 def sample(

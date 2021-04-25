@@ -1,12 +1,15 @@
-import attr
 import logging
-import numpy as np
 import random
-from scipy.spatial import distance
 from typing import Any, Callable, Tuple
+
+import attr
+import numpy as np
+from scipy.spatial import distance
 
 import model
 import util
+
+DEFAULT_RATING = 2
 
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -111,8 +114,7 @@ class Recommender:
 		logger.debug(f'Number of clusters: {i}')
 		logger.debug(f'Number of songs: {sum(per_cluster)}')
 		logger.debug(f'Number of songs per cluster: {per_cluster}')
-		key = self.db.to_scores_key(user.name, ne.name)
-		self.db.cache(key, scores.tolist())
+		self.db.cache(self.db.to_scores_key(user.name, ne.name), scores)
 		return scores
 
 	def adj_rating(self, user: model.User, ne: model.User, song: str) -> int:
@@ -122,16 +124,20 @@ class Recommender:
 			f'{user.name} and their neighbor {ne.name}')
 
 		def capacitive(r, t):
-			r = np.where(r < 2, -np.exp(-t) + 2, r)
-			r = np.where(r > 2, np.exp(-t) + 2, r)
+			r = np.where(r < DEFAULT_RATING, -np.exp(-t) + DEFAULT_RATING, r)
+			r = np.where(r > DEFAULT_RATING, np.exp(-t) + DEFAULT_RATING, r)
 			return r
 
 		def _format(arr, label, d=3):
 			u, n = round(arr[0], d), round(arr[1], d)
 			return f'User (neighbor) {label}: {u} ({n})'
 
-		result = self.db.get_features_and_ratings(user.name, ne.name, song)
-		features, (u_rating, ne_rating), (u_time, ne_time) = result
+		result = self.db.get_ratings(user.name, ne.name, song)
+		(u_rating, ne_rating), (u_time, ne_time) = result
+		u_rating = util.if_none(u_rating, DEFAULT_RATING)
+		ne_rating = util.if_none(ne_rating, DEFAULT_RATING)
+		u_time = util.if_none(u_time, util.NOW)
+		ne_time = util.if_none(ne_time, util.NOW)
 		ratings = util.float_array([u_rating, ne_rating])
 		logger.debug(_format(ratings, 'rating'))
 		deltas = util.float_array([util.delta(u_time), util.delta(ne_time)])
@@ -140,6 +146,7 @@ class Recommender:
 		logger.debug(_format(ratings, 'capacitive rating'))
 		biases = util.float_array([user.bias, 1 - user.bias])
 		logger.debug(_format(biases, 'bias'))
+		features = self.db.get_features(song)
 		similarity = util.float_array([
 			1 / (1 + self.metric(user.taste, features)),
 			1 / (1 + self.metric(ne.taste, features))])
