@@ -22,4 +22,10 @@
         android:name="ui.notifications.PlaylistFragment"
         android:label="@string/title_notifications"
         tools:layout="@layout/fragment_notifications" />
+
+    <fragment
+        android:id="@+id/song_dashboard"
+        android:name="ui.playback.SongFragment"
+        android:label="Playback"
+        tools:layout="@layout/fragment_song" />
 </navigation>

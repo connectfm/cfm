@@ -44,6 +44,8 @@ public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> 
 
     public void onBindViewHolder(SongsAdapter.ViewHolder holder, int position) {
         String artists;
+        String name;
+        String album;
         Song song = data.get(position);
 
         TextView nameView = holder.songNameView;
@@ -52,15 +54,33 @@ public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> 
         TextView albumName = holder.albumNameView;
 
         StringBuilder sb = new StringBuilder();
-        nameView.setText(song.getName());
+        if(song.getName().length() > 20) {
+            name = song.getName().substring(0,20) + "...";
+        }
+        else {
+            name = song.getName();
+        }
+
+        if(song.getAlbum().length() > 20) {
+            album = song.getAlbum().substring(0,20) + "...";
+        }
+        else {
+            album = song.getAlbum();
+        }
         Picasso.get().load(song.getImages().get(0)).into(albumView);
         sb.append(song.getArtists().get(0));
         for(int i = 1; i < song.getArtists().size(); i++) {
             sb.append(", " + song.getArtists().get(i));
         }
         artists = sb.toString();
+
+        if(artists.length() > 20) {
+            artists = artists.substring(0,20) + "...";
+        }
+
+        nameView.setText(name);
         artistView.setText("By: "+ artists);
-        albumName.setText("On: "+ song.getAlbum());
+        albumName.setText("On: "+ album);
     }
 
     public class ViewHolder extends RecyclerView.ViewHolder {
