@@ -12,7 +12,11 @@ NOW = datetime.datetime.utcnow()
 
 
 def float_array(arr):
-	return np.array(arr, dtype=np.float32)
+	return np.array(arr, dtype=np.float16)
+
+
+def if_none(value, none):
+	return none if value is None else value
 
 
 def sample(
