@@ -1,6 +1,5 @@
 import json
-import aioredis
-import asyncio
+import redis
 import re
 import msgpack_numpy as mp # Serializing numpy arrays to store in Redis
 import numpy as np
@@ -29,14 +28,14 @@ TABLE_GROUP = ".*table/(\w+)/stream.*"
 # AWS Elasticache data
 ELASTICACHE = {
     'PORT': 6379,
-    'HOST': "connectfm.urj6ir.ng.0001.use2.cache.amazonaws.com"
+    'HOST': 'localhost'
+    # 'HOST': "connectfm.urj6ir.ng.0001.use2.cache.amazonaws.com"
 }
 
 # obj should be json.loads(event)
 def update_redis(obj: dict) -> None: #(async)
     # Establish connection to redis
-    # conn = await aioredis.create_connection(
-    #                             (ELASTICACHE["HOST"], ELASTICACHE["PORT"]))
+    conn = redis.Redis(host=ELASTICACHE["HOST"], port=ELASTICACHE["PORT"])
 
     # Loop through each record
     for record in obj["Records"]:
@@ -48,11 +47,11 @@ def update_redis(obj: dict) -> None: #(async)
         if record["eventSource"] == DYNAMO:
             # Remove each of the item's keys from Redis
             if record["eventName"] == "REMOVE":
-                remove_attributes(None, prepare_for_redis(record, table))
+                remove_attributes(conn, prepare_for_redis(record, table)) #TODO: Add Redis here
 
             # Add each of the item's keys from Redis
             elif record["eventName"] == "INSERT" or record["eventName"] == "MODIFY":
-                update_attributes(None, prepare_for_redis(record, table))
+                update_attributes(conn, prepare_for_redis(record, table))
 
             else:
                 # If the event name doesn't match, respond with 400
@@ -71,14 +70,14 @@ def update_redis(obj: dict) -> None: #(async)
 # Accepts the redis connection, key, and attribute for item to update (or add)
 # Items should already be properly typecasted via val_loads, so just need to call
 #  redis functions here. We also construct the proper key?
-def update_attributes(redis, update: dict) -> None: #(async)
+def update_attributes(conn, update: dict) -> None: #(async)
     for key, value in update.items():
         if key == "Location":
             for id, coords in value.items():
-                # redis.geoadd("location", *coords, int(id)) # Coords are 100% float by now, id is string
+                conn.geoadd("location", *coords, int(id)) # Coords are 100% float by now, id is string
                 logger.info(f"Added location id:{id}, value:{coords}")
         else:
-            # redis.set(key, value)
+            conn.set(key, value)
             logger.info(f"Added key id:{key}, value:{value}")
 
 
