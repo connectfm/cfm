@@ -43,6 +43,7 @@ def update_redis(obj: dict) -> None: #(async)
         table = table.group(1) # Extracts the name of the dynamodb table from the ARN
 
         logger.info(f"Reading record from DBStream, table={table}")
+        logger.debug(f"Record: {record}")
 
         if record["eventSource"] == DYNAMO:
             # Remove each of the item's keys from Redis
