@@ -50,7 +50,8 @@ public class LoginActivity extends AppCompatActivity {
             "user-read-email" ,
             "user-read-private",
             "user-read-recently-played",
-            "app-remote-control"};
+            "user-read-playback-state",
+            "user-modify-playback-state"};
     private static final int reqCode = 0x10;
     private static final String TAG = "Spotify " + LoginActivity.class.getSimpleName();
 

@@ -43,7 +43,7 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.16'
     annotationProcessor 'org.projectlombok:lombok:1.18.16'
     implementation 'com.spotify.android:auth:1.2.3'
-
+    implementation project(':spotify-app-remote')
     implementation 'com.amplifyframework:aws-datastore:1.17.1'
     implementation 'com.squareup.picasso:picasso:2.71828'
     implementation 'pub.devrel:easypermissions:3.0.0'
