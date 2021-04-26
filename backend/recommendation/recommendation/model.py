@@ -1,13 +1,14 @@
-import attr
 import codecs
 import logging
-import msgpack_numpy as mp
 import numbers
-import numpy as np
 import pickle
 import random
-import redis
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+
+import attr
+import msgpack_numpy as mp
+import numpy as np
+import redis
 
 import util
 
@@ -75,6 +76,9 @@ class RecommendDB:
 	def set_cluster(self, k: str, *values: Any):
 		return self._redis.sadd(k, *values)
 
+	def set_clusters_time(self, timestamp: float):
+		return self._redis.set(self.get_clusters_time_key(), timestamp)
+
 	def cache(self, key: str, value: Any, expire: int = util.DAY_IN_SECS):
 		logger.debug(f'Caching {key} with value {value}')
 		if isinstance(value, np.ndarray):
@@ -125,7 +129,12 @@ class RecommendDB:
 		return (c.decode('utf-8') for c in clusters)
 
 	def get_clusters_expiration(self) -> float:
-		return self.get('ctime', decoder=util.float_decoder)
+		key = self.get_clusters_time_key()
+		return self.get(key, decoder=util.float_decoder)
+
+	@classmethod
+	def get_clusters_time_key(cls) -> str:
+		return 'ctime'
 
 	def get_features(self, song_or_user: str) -> Optional[np.ndarray]:
 		logger.debug(f'Retrieving song features for {song_or_user}')

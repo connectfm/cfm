@@ -1,12 +1,14 @@
-import attr
 import itertools
 import json
-import msgpack_numpy as mp
-import numpy as np
 import os
-import pandas as pd
+import time
 import uuid
 from typing import Any, List, NoReturn, Tuple, Union
+
+import attr
+import msgpack_numpy as mp
+import numpy as np
+import pandas as pd
 
 import recommend
 import util
@@ -56,6 +58,7 @@ def store_clusters(db: model.RecommendDB, *clusters: np.ndarray) -> NoReturn:
 	for c, songs in enumerate(clusters):
 		key = db.to_cluster_key(c)
 		db.set_cluster(key, *(db.to_song_key(s) for s in songs))
+	db.set_clusters_time(time.time())
 
 
 def store_features(
@@ -79,12 +82,16 @@ class RecommendData:
 			self,
 			n: int = 1,
 			d: int = 10,
+			use_uuid: bool = False,
 			small_world: bool = False) -> np.ndarray:
 		"""Randomly generates n users d-dimensional taste vectors
 
 		All other User attributes are populated as well.
 		"""
-		names = (str(uuid.uuid4()) for _ in range(n))
+		if use_uuid:
+			names = (str(uuid.uuid4()) for _ in range(n))
+		else:
+			names = (str(i) for i in range(n))
 		biases = self.get_biases(n)
 		radii = self.get_radii(n)
 		coords = self.get_coordinates(n, small_world=small_world)
@@ -98,8 +105,8 @@ class RecommendData:
 			self, n: int = 1, small_world: bool = False) -> np.ndarray:
 		"""Randomly generates n longitude-latitude coordinate pairs"""
 		if small_world:
-			long = self._rng.uniform(0, 1, size=n)
-			lat = self._rng.uniform(0, 1, size=n)
+			long = self._rng.uniform(0, 0.1, size=n)
+			lat = self._rng.uniform(0, 0.1, size=n)
 		else:
 			long = self._rng.uniform(-180, 180, size=n)
 			lat = self._rng.uniform(-85, 85, size=n)
@@ -132,13 +139,18 @@ class RecommendData:
 def main():
 	data = RecommendData()
 	keys, features = load_features('data/')
-	users = data.get_users(10, d=len(features[0]), small_world=True)
-	clusters = data.get_clusters(*keys, n=3)
+	keys, features = keys[:10_000], features[:10_000]
+	users = data.get_users(n_users := 10, d=len(features[0]), small_world=True)
+	clusters = data.get_clusters(*keys, n=5)
 	with model.RecommendDB() as db:
-		store_features(db, keys[:100], features[:100])
+		store_features(db, keys, features)
 		store_users(db, *users)
 		store_clusters(db, *clusters)
-		print(recommend.Recommender(db).recommend(users[0].name))
+		for i in range(5):
+			start = time.time()
+			print(recommend.Recommender(db).recommend(users[i % n_users].name))
+			stop = time.time()
+			print(f'Duration: {round(stop - start, 4)} sec')
 
 
 if __name__ == '__main__':
