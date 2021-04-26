@@ -34,9 +34,6 @@ ELASTICACHE = {
 
 # obj should be json.loads(event)
 def update_redis(obj: dict) -> None: #(async)
-    # Establish connection to redis
-    # conn = await aioredis.create_connection(
-    #                             (ELASTICACHE["HOST"], ELASTICACHE["PORT"]))
 
     # Loop through each record
     for record in obj["Records"]:
@@ -90,7 +87,7 @@ def remove_attributes(redis, update: dict) -> None:
                 redis.zrem("location", int(id))
                 logger.info(f"Deleted location {id}")
         else:
-            redis.delete(key)
+            redis.delete(key) # Note that this returns '0' if the key didn't exist
             logger.info(f"Deleted key {key}")
 
 
