@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.cfm">
 
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -23,7 +24,16 @@
         <activity
             android:name="ui.LoginActivity"
             android:label="@string/title_activity_login"
-            android:theme="@style/Theme.Cfm.NoActionBar"></activity>
+            android:theme="@style/Theme.Cfm.NoActionBar">
+        </activity>
+
+        <receiver
+            android:name="ui.LoginActivity">
+            <intent-filter>
+                <action android:name="com.spotify.music.active"/>
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name="ui.SplashActivity"
             android:label="@string/app_name"
