@@ -3,7 +3,7 @@ import logging
 import numbers
 import pickle
 import random
-from typing import Any, Callable, Iterable, Tuple, Union
+from typing import Any, Callable, Iterable, Optional, Sequence, Tuple, Union
 
 import attr
 import msgpack_numpy as mp
@@ -48,55 +48,95 @@ class RecommendDB:
 	def __exit__(self, exc_type, exc_val, exc_tb):
 		self._redis.close()
 
-	def get(self, *k: str, decoder: Union[Callable, str] = None) -> Tuple:
-		def decode(x):
-			if isinstance(decoder, str):
-				x = codecs.decode(x, decoder)
-			elif isinstance(decoder, Callable):
-				x = decoder(x)
-			return x
+	def get(self, *keys: str, decoder: Union[Callable, str] = None) -> Tuple:
+		return tuple(
+			v if v is None else self._decode(v, decoder)
+			for v in self._redis.mget(*keys))
 
-		items = (i if i is None else decode(i) for i in self._redis.mget(*k))
-		return tuple(items)
+	@staticmethod
+	def _decode(value, decoder: Union[Callable, str]):
+		if isinstance(decoder, str):
+			value = codecs.decode(value, decoder)
+		elif isinstance(decoder, Callable):
+			value = decoder(value)
+		return value
 
 	def set(
 			self,
-			k: str,
-			v: Any,
+			key: str,
+			value: Any,
+			*,
 			expire: int = None,
 			encoder: Union[Callable, str] = None) -> bool:
-		def encode(x):
-			if isinstance(encode, str):
-				x = codecs.encode(x, encoder)
-			elif isinstance(encoder, Callable):
-				x = encoder(x)
-			return x
+		return self._redis.set(key, self._encode(value, encoder), ex=expire)
 
-		return self._redis.set(k, encode(v), ex=expire)
+	@staticmethod
+	def _encode(value: Any, encoder: Union[Callable, str]):
+		if isinstance(encoder, str):
+			value = codecs.encode(value, encoder)
+		elif isinstance(encoder, Callable):
+			value = encoder(value)
+		return value
 
-	def get_bias(self, *items: str):
-		keys = (self.to_bias_key(i) for i in items)
-		return self._redis.mget(*keys)
+	def get_bias(self, *names: str) -> Sequence[Optional[float]]:
+		return self._redis.mget(*(self.to_bias_key(n) for n in names))
 
-	def get_location(self, *values: str):
-		return self._redis.geopos(self.get_geolocation_key(), *values)
+	def set_bias(
+			self,
+			name: str,
+			value: numbers.Real,
+			expire: int = None) -> bool:
+		return self.set(self.to_bias_key(name), value, expire=expire)
 
-	def set_location(self, k: str, long: float, lat: float):
-		return self._redis.geoadd(self.get_geolocation_key(), *(long, lat, k))
+	def get_radius(self, *names: str) -> Sequence[Optional[float]]:
+		return self._redis.mget(*(self.to_radius_key(n) for n in names))
 
-	def set_cluster(self, k: str, *values: Any):
-		return self._redis.sadd(k, *values)
+	def set_radius(
+			self,
+			name: str,
+			value: float,
+			expire: int = None) -> bool:
+		return self.set(self.to_radius_key(name), value, expire=expire)
 
-	def set_clusters_time(self, timestamp: float):
+	def get_location(self, *names: str) -> Sequence[Tuple[float, float]]:
+		return self._redis.geopos(self.get_location_key(), *names)
+
+	def set_location(self, name: str, long: float, lat: float) -> bool:
+		key = self.get_location_key()
+		return self._redis.geoadd(key, *(long, lat, name))
+
+	def get_clusters(self) -> Iterable[str]:
+		keys = self._redis.scan_iter(match=self.to_cluster_key('*'))
+		return (self._get_name(k) for k in keys)
+
+	@staticmethod
+	def _get_name(encoded: bytes):
+		return encoded.decode('utf-8').split(':')[-1]
+
+	def set_cluster(self, name: str, *songs: Any) -> bool:
+		songs = (self.to_song_key(s) for s in songs)
+		return self._redis.sadd(self.to_cluster_key(name), *songs)
+
+	def get_clusters_time(self) -> float:
+		key = self.get_clusters_time_key()
+		return self.get(key, decoder=util.float_decoder)[0]
+
+	def set_clusters_time(self, timestamp: float) -> bool:
 		return self._redis.set(self.get_clusters_time_key(), timestamp)
 
-	def cache(self, key: str, value: Any, expire: int = util.DAY_IN_SECS):
+	def cache(
+			self,
+			key: str,
+			value: Any,
+			*,
+			expire: int = None,
+			encoder: Union[Callable, str] = None) -> bool:
 		logger.debug(f'Caching {key} with value {value}')
-		if isinstance(value, np.ndarray):
-			value = value.tolist()
-		serialized = {'value': value, 'time': util.NOW.timestamp()}
-		result = self.set(key, serialized, encoder=pickle.dumps, expire=expire)
+		value = self._encode(value, encoder)
+		value = {'value': value, 'time': util.NOW.timestamp()}
+		result = self.set(key, value, encoder=pickle.dumps, expire=expire)
 		self._log_cache_event(result, key, expire)
+		return result
 
 	@staticmethod
 	def _log_cache_event(result: bool, name: str, expire: int = None):
@@ -108,46 +148,38 @@ class RecommendDB:
 		else:
 			logger.warning(f'Failed to cache {name}')
 
-	def get_cached(self, k: str) -> Any:
-		"""Returns the cached value"""
-		value = None
-		if data := self.get(k, decoder=pickle.loads)[0]:
+	def get_cached(self, key: str) -> Any:
+		if data := self.get(key, decoder=pickle.loads)[0]:
 			value, timestamp = data['value'], data['time']
 			if self._is_valid(timestamp):
-				logger.info(f'Using cached the value of {k}')
+				logger.info(f'Using cached the value of {key}')
 			else:
-				logger.warning(f'Clusters have been updated since caching {k}')
+				logger.warning(
+					f'Clusters have been updated since caching {key}')
 		else:
-			logger.warning(f'Cached value of {k} does not exist')
+			logger.warning(f'Cached value of {key} does not exist')
+			value = None
 		return value
 
 	def _is_valid(self, timestamp: float) -> bool:
-		valid = True
-		if c_time := self.get_clusters_expiration():
+		if c_time := self.get_clusters_time():
 			valid = timestamp > c_time
 		else:
 			logger.warning(
 				'Unable to find the cluster scores timestamp. Assuming '
 				'the associated value is still representative')
+			valid = True
 		return valid
 
-	def get_songs(self, cluster: Union[str, int]) -> Iterable:
-		songs = self._redis.sscan_iter(cluster)
-		return (s.decode('utf-8') for s in songs)
+	def get_songs(self, cluster: str) -> Iterable[str]:
+		key = self.to_cluster_key(cluster)
+		return (self._get_name(s) for s in self._redis.sscan_iter(key))
 
-	def get_clusters(self) -> Iterable:
-		clusters = self._redis.scan_iter(match=self.to_cluster_key('*'))
-		return (c.decode('utf-8') for c in clusters)
-
-	def get_clusters_expiration(self) -> float:
-		key = self.get_clusters_time_key()
-		return self.get(key, decoder=util.float_decoder)[0]
-
-	@classmethod
-	def get_clusters_time_key(cls) -> str:
-		return 'ctime'
-
-	def get_ratings(self, user: str, ne: str, song: str) -> Tuple:
+	def get_ratings(
+			self,
+			user: str,
+			ne: str,
+			song: str) -> Tuple[Tuple[float, float], Tuple[float, float]]:
 		logger.debug(
 			f'Retrieving ratings, and timestamps for user {user} and neighbor '
 			f'{ne}')
@@ -160,7 +192,7 @@ class RecommendDB:
 		logger.debug('Retrieved ratings, and timestamps')
 		return (u_rating, ne_rating), (u_time, ne_time)
 
-	def get_random_taste(self, n: int = 100):
+	def get_random_taste(self, n: int = 100) -> np.ndarray:
 		logger.info(
 			'Randomly retrieving the music taste from one of the first '
 			f'{n} users')
@@ -177,31 +209,41 @@ class RecommendDB:
 			return util.float_array(mp.unpackb(taste))
 
 	def get_features(
-			self, *items: str, songs: bool) -> Tuple[np.ndarray, np.ndarray]:
+			self, *names: str, songs: bool) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the feature vectors of one or more users or songs."""
-		logger.debug(f'Retrieving the features of {items}')
+		logger.debug(f'Retrieving the features of {names}')
 		if songs:
-			# TODO(rdt17) Fix this patch
-			feats = (i for i in items)
+			keys = (self.to_song_key(n) for n in names)
 		else:
-			feats = (self.to_taste_key(i) for i in items)
-		feats = self.get(*feats, decoder=mp.unpackb)
-		if missing := [f for f in feats if f is None]:
+			keys = (self.to_taste_key(n) for n in names)
+		features = self.get(*keys, decoder=mp.unpackb)
+		if missing := [f for f in features if f is None]:
 			logger.warning(
-				f'Unable to find features for {len(missing)} of {len(items)} '
+				f'Unable to find features for {len(missing)} of {len(names)} '
 				f'items. Filtering out missing features. The following are '
 				f'the items with missing features: {missing}')
-		present = [(i, f) for i, f in zip(items, feats) if f is not None]
-		items = np.array([i for i, _ in present])
-		feats = util.float_array([f for _, f in present])
-		return items, feats
+		present = [(n, f) for n, f in zip(names, features) if f is not None]
+		names = np.array([n for n, _ in present])
+		features = util.float_array([f for _, f in present])
+		return names, features
 
-	def get_neighbors(self, user: User) -> np.ndarray:
+	def set_features(
+			self,
+			name: str,
+			value: np.ndarray,
+			song: bool,
+			expire: int = None) -> bool:
+		if song:
+			key = self.to_song_key(name)
+		else:
+			key = self.to_taste_key(name)
+		return self.set(key, value, expire=expire, encoder=mp.packb)
+
+	def get_neighbors(self, user: User, units: str = 'mi') -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
 		logger.info(f'Finding the neighbors of user {user.name}')
 		if all(loc := (user.long, user.lat, user.rad)):
-			key = self.get_geolocation_key()
-			ne = self._redis.georadius(key, *loc, 'mi')
+			ne = self._redis.georadius(self.get_location_key(), *loc, units)
 			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
 		else:
 			logger.warning(f'Unable to find the location of user {user.name}')
@@ -213,7 +255,6 @@ class RecommendDB:
 		logger.info(f'Retrieving attributes of user {name}')
 		taste = self.get_features(name, songs=False)[1][0]
 		bias_and_radius = (self.to_bias_key(name), self.to_radius_key(name))
-		# TODO(rdt17) Do better with encapsulation
 		bias, radius = self.get(*bias_and_radius, decoder=util.float_decoder)
 		values = (taste, bias, radius)
 		if all(missing := [v is None for v in values]):
@@ -233,23 +274,27 @@ class RecommendDB:
 			name=name, taste=taste, bias=bias, long=long, lat=lat, rad=radius)
 
 	@classmethod
-	def to_cluster_key(cls, c: Union[int, str]) -> str:
-		return f'cluster:{c}'
+	def get_clusters_time_key(cls) -> str:
+		return 'ctime'
 
 	@classmethod
-	def get_geolocation_key(cls):
+	def to_cluster_key(cls, cluster: Union[int, str]) -> str:
+		return f'cluster:{cluster}'
+
+	@classmethod
+	def get_location_key(cls):
 		return 'location'
 
 	@classmethod
-	def to_radius_key(cls, u: str) -> str:
-		return f'rad:{u}'
+	def to_radius_key(cls, user: str) -> str:
+		return f'rad:{user}'
 
 	@classmethod
 	def to_scores_key(cls, user: str, ne: str) -> str:
 		return f'cscores:{user}.{ne}'
 
 	@classmethod
-	def to_ratings_key(cls, user: str, ne: str, cluster: int) -> str:
+	def to_ratings_key(cls, user: str, ne: str, cluster: str) -> str:
 		return f'cratings:{user}.{ne}.{cluster}'
 
 	@classmethod

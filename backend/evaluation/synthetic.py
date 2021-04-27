@@ -6,7 +6,6 @@ import uuid
 from typing import Any, List, NoReturn, Tuple, Union
 
 import attr
-import msgpack_numpy as mp
 import numpy as np
 import pandas as pd
 
@@ -48,26 +47,24 @@ def load_features(dir_path: str) -> Tuple[np.ndarray, np.ndarray]:
 
 def store_users(db: model.RecommendDB, *users: model.User) -> NoReturn:
 	for u in users:
-		db.set(db.to_taste_key(u.name), u.taste, encoder=mp.packb)
-		db.set(db.to_radius_key(u.name), u.rad)
-		db.set(db.to_bias_key(u.name), u.bias)
+		db.set_bias(u.name, u.bias)
+		db.set_features(u.name, u.taste, song=False)
+		db.set_radius(u.name, u.rad)
 		db.set_location(u.name, u.long, u.lat)
 
 
 def store_clusters(db: model.RecommendDB, *clusters: np.ndarray) -> NoReturn:
 	for c, songs in enumerate(clusters):
-		key = db.to_cluster_key(c)
-		# TODO(rdt17) Be better about encapsulation
-		db.set_cluster(key, *(db.to_song_key(s) for s in songs))
+		db.set_cluster(str(c), *songs)
 	db.set_clusters_time(time.time())
 
 
 def store_features(
 		db: model.RecommendDB,
-		keys: np.ndarray,
+		names: np.ndarray,
 		features: np.ndarray) -> NoReturn:
-	for k, f in zip(keys, features):
-		db.set(db.to_song_key(k), f, encoder=mp.packb)
+	for n, f in zip(names, features):
+		db.set_features(n, f, song=True)
 
 
 @attr.s(slots=True)
