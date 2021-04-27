@@ -43,6 +43,7 @@ def update_redis(obj: dict) -> None: #(async)
         table = table.group(1) # Extracts the name of the dynamodb table from the ARN
 
         logger.info(f"Reading record from DBStream, table={table}")
+        logger.debug(f"Record: {record}")
 
         if record["eventSource"] == DYNAMO:
             # Remove each of the item's keys from Redis
@@ -89,7 +90,7 @@ def remove_attributes(redis, update: dict) -> None:
                 redis.zrem("location", int(id))
                 logger.info(f"Deleted location {id}")
         else:
-            redis.delete(key)
+            redis.delete(key) # Note that this returns '0' if the key didn't exist
             logger.info(f"Deleted key {key}")
 
 

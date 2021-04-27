@@ -17,4 +17,4 @@ RUN pip install -r ${LAMBDA_TASK_ROOT}/requirements.txt
 COPY dbprocessing ${LAMBDA_TASK_ROOT}
 
 # Lambda handler
-CMD ["app.handle"]
+CMD ["app.handler"]
