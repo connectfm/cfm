@@ -38,9 +38,9 @@ class Recommender:
 				f'Unable to find the taste of user {user.name}. Using a taste '
 				'from a random user')
 			user.taste = self.db.get_random_taste()
-		if (neighbors := self.db.get_neighbors(user)).size > 0:
+		if len(neighbors := self.db.get_neighbors(user)) > 0:
 			neighbors, tastes = self.db.get_features(*neighbors, songs=False)
-			if neighbors.size > 0:
+			if len(neighbors) > 0:
 				ne = self.sample_neighbor(user, neighbors, tastes)
 			else:
 				logger.warning(
@@ -62,7 +62,7 @@ class Recommender:
 			neighbors: np.ndarray,
 			tastes: np.ndarray) -> model.User:
 		"""Returns a neighbor using taste to weight the sampling."""
-		logger.info(f'Sampling 1 of {neighbors.size} neighbors of {user.name}')
+		logger.info(f'Sampling 1 of {len(neighbors)} neighbors of {user.name}')
 		u_taste = np.array([user.taste])
 		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)[0]
 		similarity = 1 / (1 + dissimilarity)
@@ -77,15 +77,17 @@ class Recommender:
 			*,
 			with_index: bool = False) -> Any:
 		"""Returns an element from the population using weighted sampling."""
-		probs = weights / sum(weights)
+		if (norm := sum(weights)) == 0:
+			probs = np.zeros(weights.shape)
+		else:
+			probs = weights / norm
 		mean = np.round(np.average(probs), 3)
 		sd = np.round(np.std(probs), 3)
 		logger.debug(f'Mean (sd) probability: {mean} ({sd})')
 		if with_index:
-			population = np.vstack((np.arange(population.size), population)).T
+			population = np.vstack((np.arange(len(population)), population)).T
 			idx_and_chosen = self._rng.choice(population, p=probs)
-			# When the population are strings, the indices must be converted
-			# back
+			# String population converts indices to strings
 			idx, chosen = int(idx_and_chosen[0]), idx_and_chosen[1:]
 			chosen = chosen.item() if chosen.shape == (1,) else chosen
 			logger.debug(f'Sampled element (index): {chosen} ({idx})')
@@ -175,7 +177,7 @@ class Recommender:
 		deltas = util.float_array([util.delta(u_time), util.delta(ne_time)])
 		ratings = capacitive(ratings, deltas)
 		biases = util.float_array([user.bias, 1 - user.bias])
-		if (features := self.db.get_features(song, songs=True)[1][0]).size > 0:
+		if len(features := self.db.get_features(song, songs=True)[1][0]) > 0:
 			similarity = util.float_array([
 				1 / (1 + self.metric(user.taste, features)),
 				1 / (1 + self.metric(ne.taste, features))])
