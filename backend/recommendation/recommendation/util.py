@@ -36,7 +36,8 @@ def sample(
 	if with_index:
 		population = np.vstack((np.arange(population.size), population)).T
 		idx_and_chosen = rng.choice(population, p=probs)
-		idx, chosen = idx_and_chosen[0], idx_and_chosen[1:]
+		# When the population are strings, the indices must be converted back
+		idx, chosen = int(idx_and_chosen[0]), idx_and_chosen[1:]
 		chosen = chosen.item() if chosen.shape == (1,) else chosen
 		logger.debug(f'Sampled element (index): {sample} ({idx})')
 		chosen = (chosen, idx)

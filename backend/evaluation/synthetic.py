@@ -57,6 +57,7 @@ def store_users(db: model.RecommendDB, *users: model.User) -> NoReturn:
 def store_clusters(db: model.RecommendDB, *clusters: np.ndarray) -> NoReturn:
 	for c, songs in enumerate(clusters):
 		key = db.to_cluster_key(c)
+		# TODO(rdt17) Be better about encapsulation
 		db.set_cluster(key, *(db.to_song_key(s) for s in songs))
 	db.set_clusters_time(time.time())
 
@@ -139,7 +140,7 @@ class RecommendData:
 def main():
 	data = RecommendData()
 	keys, features = load_features('data/')
-	keys, features = keys[:10_000], features[:10_000]
+	keys, features = keys[:1_000], features[:1_000]
 	users = data.get_users(n_users := 10, d=len(features[0]), small_world=True)
 	clusters = data.get_clusters(*keys, n=5)
 	with model.RecommendDB() as db:

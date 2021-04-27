@@ -64,9 +64,10 @@ class Recommender:
 		"""Returns a neighbor using taste to weight the sampling."""
 		logger.info(f'Sampling 1 of {neighbors.size} neighbors of {user.name}')
 		u_taste = np.array([user.taste])
-		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)
+		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)[0]
 		similarity = 1 / (1 + dissimilarity)
-		ne, idx = util.sample(neighbors, similarity, with_index=True)
+		ne, idx = util.sample(
+			neighbors, similarity, seed=self.seed, with_index=True)
 		logger.info(f'Sampled neighbor {ne}')
 		return model.User(ne, taste=tastes[idx])
 
@@ -80,7 +81,7 @@ class Recommender:
 			songs, ratings = np.array(songs), util.float_array(ratings)
 		else:
 			songs, ratings = self.compute_ratings(user, ne, cluster)
-		song = util.sample(songs, ratings)
+		song = util.sample(songs, ratings, seed=self.seed)
 		logger.info(f'Sampled song {song}')
 		return song
 
@@ -93,7 +94,7 @@ class Recommender:
 			clusters, scores = np.array(clusters), util.float_array(scores)
 		else:
 			clusters, scores = self.compute_scores(user, ne)
-		cluster = util.sample(clusters, scores)
+		cluster = util.sample(clusters, scores, seed=self.seed)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
 
@@ -150,7 +151,7 @@ class Recommender:
 		deltas = util.float_array([util.delta(u_time), util.delta(ne_time)])
 		ratings = capacitive(ratings, deltas)
 		biases = util.float_array([user.bias, 1 - user.bias])
-		if (features := self.db.get_features(song, songs=True)) is not None:
+		if (features := self.db.get_features(song, songs=True)[1][0]).size > 0:
 			similarity = util.float_array([
 				1 / (1 + self.metric(user.taste, features)),
 				1 / (1 + self.metric(ne.taste, features))])

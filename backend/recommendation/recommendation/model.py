@@ -1,13 +1,14 @@
-import attr
 import codecs
 import logging
-import msgpack_numpy as mp
 import numbers
-import numpy as np
 import pickle
 import random
-import redis
 from typing import Any, Callable, Iterable, Tuple, Union
+
+import attr
+import msgpack_numpy as mp
+import numpy as np
+import redis
 
 import util
 
@@ -69,11 +70,15 @@ class RecommendDB:
 
 		return self._redis.set(k, encode(v), ex=expire)
 
-	def set_location(self, k: str, long: float, lat: float):
-		return self._redis.geoadd(self.get_geolocation_key(), *(long, lat, k))
+	def get_bias(self, *items: str):
+		keys = (self.to_bias_key(i) for i in items)
+		return self._redis.mget(*keys)
 
 	def get_location(self, *values: str):
 		return self._redis.geopos(self.get_geolocation_key(), *values)
+
+	def set_location(self, k: str, long: float, lat: float):
+		return self._redis.geoadd(self.get_geolocation_key(), *(long, lat, k))
 
 	def set_cluster(self, k: str, *values: Any):
 		return self._redis.sadd(k, *values)
@@ -170,9 +175,10 @@ class RecommendDB:
 	def get_features(
 			self, *items: str, songs: bool) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the feature vectors of one or more users or songs."""
-		logger.info(f'Retrieving the features of {len(items)} items')
+		logger.debug(f'Retrieving the features of {items}')
 		if songs:
-			feats = (self.to_song_key(i) for i in items)
+			# TODO(rdt17) Fix this patch
+			feats = (i for i in items)
 		else:
 			feats = (self.to_taste_key(i) for i in items)
 		feats = self.get(*feats, decoder=mp.unpackb)
@@ -196,20 +202,20 @@ class RecommendDB:
 		else:
 			logger.warning(f'Unable to find the location of user {user.name}')
 			ne = []
-		return np.array(ne)
+		return np.array([n.decode('utf-8') for n in ne])
 
 	def get_user(self, name: str) -> User:
 		"""Returns a user with all associated attributes populated"""
 		logger.info(f'Retrieving attributes of user {name}')
-		taste_key = self.to_taste_key(name)
-		_, taste = self.get_features(taste_key, songs=False)
+		taste = self.get_features(name, songs=False)[1][0]
 		bias_and_radius = (self.to_bias_key(name), self.to_radius_key(name))
+		# TODO(rdt17) Do better with encapsulation
 		bias, radius = self.get(*bias_and_radius, decoder=util.float_decoder)
 		values = (taste, bias, radius)
 		if all(missing := [v is None for v in values]):
 			raise KeyError(f'Unable to find user {name}')
 		if any(missing):
-			keys = [taste_key, *bias_and_radius]
+			keys = [self.to_taste_key(name), *bias_and_radius]
 			logger.warning(
 				f'Unable to find all attributes of user {name}: '
 				f'{[k for k, v in zip(keys, values) if v is None]}')
