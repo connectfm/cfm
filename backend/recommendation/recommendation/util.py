@@ -1,13 +1,26 @@
 import datetime
 import logging
-import numpy as np
-from typing import Any
+from typing import Union
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+import numpy as np
 
 DAY_IN_SECS = 86_400
 NOW = datetime.datetime.utcnow()
+
+
+def get_logger(
+		name: str = None,
+		level: Union[str, int] = logging.INFO) -> logging.Logger:
+	if logging.getLogger(name).hasHandlers():
+		log = logging.getLogger(name)
+		log.setLevel(level)
+	else:
+		logging.basicConfig(format='%(levelname)s: %(message)s', level=level)
+		log = logging.getLogger(name)
+	return log
+
+
+logger = get_logger(__name__)
 
 
 def float_array(arr):

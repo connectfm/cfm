@@ -1,5 +1,4 @@
 import codecs
-import logging
 import numbers
 import pickle
 import random
@@ -12,12 +11,7 @@ import redis
 
 import util
 
-if logging.getLogger().hasHandlers():
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-else:
-    logger = logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-    logger = logging.getLogger()
+logger = util.get_logger(__name__)
 
 
 @attr.s(slots=True)

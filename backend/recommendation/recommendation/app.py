@@ -1,21 +1,18 @@
-import jsonpickle
 import logging
 import os
 from typing import Any, Dict
 
+import jsonpickle
+
 import model
 import recommend
+import util
 
 MAX_CLUSTERS = int(os.getenv('MAX_CLUSTERS', default=100))
 SEED = os.getenv('SEED')
 LOG_LEVEL = os.getenv('LOG_LEVEL', default=logging.INFO)
 
-if logging.getLogger().hasHandlers():
-    logger = logging.getLogger()
-    logger.setLevel(LOG_LEVEL)
-else:
-    logger = logging.basicConfig(format='%(levelname)s: %(message)s', level=LOG_LEVEL)
-    logger = logging.getLogger()
+logger = util.get_logger(__name__, LOG_LEVEL)
 
 
 def handle(event, context):

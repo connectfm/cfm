@@ -1,4 +1,3 @@
-import logging
 import random
 from typing import Any, Callable, Tuple
 
@@ -11,12 +10,7 @@ import util
 
 DEFAULT_RATING = 2
 
-if logging.getLogger().hasHandlers():
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
-else:
-    logger = logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-    logger = logging.getLogger()
+logger = util.get_logger(__name__)
 
 
 @attr.s(slots=True)
