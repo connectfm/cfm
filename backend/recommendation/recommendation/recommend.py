@@ -66,10 +66,34 @@ class Recommender:
 		u_taste = np.array([user.taste])
 		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)[0]
 		similarity = 1 / (1 + dissimilarity)
-		ne, idx = util.sample(
-			neighbors, similarity, seed=self.seed, with_index=True)
+		ne, idx = self.sample(neighbors, similarity, with_index=True)
 		logger.info(f'Sampled neighbor {ne}')
 		return model.User(ne, taste=tastes[idx])
+
+	def sample(
+			self,
+			population: np.ndarray,
+			weights: np.ndarray,
+			*,
+			with_index: bool = False) -> Any:
+		"""Returns an element from the population using weighted sampling."""
+		probs = weights / sum(weights)
+		mean = np.round(np.average(probs), 3)
+		sd = np.round(np.std(probs), 3)
+		logger.debug(f'Mean (sd) probability: {mean} ({sd})')
+		if with_index:
+			population = np.vstack((np.arange(population.size), population)).T
+			idx_and_chosen = self._rng.choice(population, p=probs)
+			# When the population are strings, the indices must be converted
+			# back
+			idx, chosen = int(idx_and_chosen[0]), idx_and_chosen[1:]
+			chosen = chosen.item() if chosen.shape == (1,) else chosen
+			logger.debug(f'Sampled element (index): {chosen} ({idx})')
+			chosen = (chosen, idx)
+		else:
+			chosen = self._rng.choice(population, p=probs)
+			logger.debug(f'Sampled element: {chosen}')
+		return chosen
 
 	def sample_song(self, user: model.User, ne: model.User) -> str:
 		"""Returns a song based on user and neighbor contexts."""
@@ -81,11 +105,11 @@ class Recommender:
 			songs, ratings = np.array(songs), util.float_array(ratings)
 		else:
 			songs, ratings = self.compute_ratings(user, ne, cluster)
-		song = util.sample(songs, ratings, seed=self.seed)
+		song = self.sample(songs, ratings)
 		logger.info(f'Sampled song {song}')
 		return song
 
-	def sample_cluster(self, user: model.User, ne: model.User) -> int:
+	def sample_cluster(self, user: model.User, ne: model.User) -> str:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommend a song')
 		key = self.db.to_scores_key(user.name, ne.name)
@@ -94,7 +118,7 @@ class Recommender:
 			clusters, scores = np.array(clusters), util.float_array(scores)
 		else:
 			clusters, scores = self.compute_scores(user, ne)
-		cluster = util.sample(clusters, scores, seed=self.seed)
+		cluster = self.sample(clusters, scores)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
 
@@ -118,7 +142,7 @@ class Recommender:
 		logger.debug(f'Number of songs: {sum(per_cluster)}')
 		logger.debug(f'Number of songs per cluster: {per_cluster}')
 		key = self.db.to_scores_key(user.name, ne.name)
-		self.db.cache(key, (clusters, scores))
+		self.db.cache(key, (clusters, scores), expire=util.DAY_IN_SECS)
 		return np.array(clusters), util.float_array(scores)
 
 	def adj_rating(self, user: model.User, ne: model.User, song: str) -> int:
@@ -174,7 +198,7 @@ class Recommender:
 			self,
 			user: model.User,
 			ne: model.User,
-			cluster: int) -> Tuple[np.ndarray, np.ndarray]:
+			cluster: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Computes the song ratings for a given user, neighbor, and cluster"""
 		songs, ratings = [], []
 		for song in self.db.get_songs(cluster):
@@ -182,5 +206,5 @@ class Recommender:
 			ratings.append(self.adj_rating(user, ne, song))
 		logger.debug(f'Number of songs in cluster {cluster}: {len(ratings)}')
 		key = self.db.to_ratings_key(user.name, ne.name, cluster)
-		self.db.cache(key, (songs, ratings))
+		self.db.cache(key, (songs, ratings), expire=util.DAY_IN_SECS)
 		return np.array(songs), util.float_array(ratings)
