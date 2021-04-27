@@ -39,7 +39,7 @@ class Recommender:
 				'from a random user')
 			user.taste = self.db.get_random_taste()
 		if (neighbors := self.db.get_neighbors(user)).size > 0:
-			neighbors, tastes = self.db.get_tastes(*neighbors)
+			neighbors, tastes = self.db.get_features(*neighbors, songs=False)
 			if neighbors.size > 0:
 				ne = self.sample_neighbor(user, neighbors, tastes)
 			else:
@@ -131,25 +131,26 @@ class Recommender:
 			r = np.where(r > DEFAULT_RATING, np.exp(-t) + DEFAULT_RATING, r)
 			return r
 
-		def _format(arr, label, d=3):
+		def format_(arr, label, d=3):
 			u, n = round(arr[0], d), round(arr[1], d)
 			return f'User (neighbor) {label}: {u} ({n})'
 
+		def default_if_none(r, t):
+			if r is None or t is None:
+				value = (DEFAULT_RATING, util.NOW.timestamp())
+			else:
+				value = (r, t)
+			return value
+
 		result = self.db.get_ratings(user.name, ne.name, song)
 		(u_rating, ne_rating), (u_time, ne_time) = result
-		u_rating = util.if_none(u_rating, DEFAULT_RATING)
-		ne_rating = util.if_none(ne_rating, DEFAULT_RATING)
-		u_time = util.if_none(u_time, util.NOW.timestamp())
-		ne_time = util.if_none(ne_time, util.NOW.timestamp())
+		u_rating, u_time = default_if_none(u_rating, u_time)
+		ne_rating, ne_time = default_if_none(ne_rating, ne_time)
 		ratings = util.float_array([u_rating, ne_rating])
-		logger.debug(_format(ratings, 'rating'))
 		deltas = util.float_array([util.delta(u_time), util.delta(ne_time)])
-		logger.debug(_format(deltas, 'time delta'))
 		ratings = capacitive(ratings, deltas)
-		logger.debug(_format(ratings, 'capacitive rating'))
 		biases = util.float_array([user.bias, 1 - user.bias])
-		logger.debug(_format(biases, 'bias'))
-		if (features := self.db.get_features(song)) is not None:
+		if (features := self.db.get_features(song, songs=True)) is not None:
 			similarity = util.float_array([
 				1 / (1 + self.metric(user.taste, features)),
 				1 / (1 + self.metric(ne.taste, features))])
@@ -158,8 +159,12 @@ class Recommender:
 				f'Unable to find features for song {song}. Assuming 0 '
 				f'similarity')
 			similarity = util.float_array([0, 0])
-		logger.debug(_format(similarity, 'similarity'))
 		rating = sum(biases * ratings) * sum(biases * similarity)
+		logger.debug(format_(ratings, 'rating'))
+		logger.debug(format_(deltas, 'time delta'))
+		logger.debug(format_(ratings, 'capacitive rating'))
+		logger.debug(format_(biases, 'bias'))
+		logger.debug(format_(similarity, 'similarity'))
 		logger.debug(
 			f'Adjusted rating of user {user.name}: {round(rating, 3)}')
 		return rating

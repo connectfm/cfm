@@ -48,7 +48,7 @@ def load_features(dir_path: str) -> Tuple[np.ndarray, np.ndarray]:
 
 def store_users(db: model.RecommendDB, *users: model.User) -> NoReturn:
 	for u in users:
-		db.set(db.to_taste_key(u.name), mp.packb(u.taste))
+		db.set(db.to_taste_key(u.name), u.taste, encoder=mp.packb)
 		db.set(db.to_radius_key(u.name), u.rad)
 		db.set(db.to_bias_key(u.name), u.bias)
 		db.set_location(u.name, u.long, u.lat)
@@ -66,7 +66,7 @@ def store_features(
 		keys: np.ndarray,
 		features: np.ndarray) -> NoReturn:
 	for k, f in zip(keys, features):
-		db.set(db.to_song_key(k), mp.packb(f))
+		db.set(db.to_song_key(k), f, encoder=mp.packb)
 
 
 @attr.s(slots=True)
