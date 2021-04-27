@@ -6,7 +6,7 @@ import numpy as np
 import logging
 
 # Per AWS documentation - AWS apparently creates its own logging instance with its own metadata
-# Not doing this will lead to some logs not being written. 
+# Not doing this will lead to some logs not being written.
 if logging.getLogger().hasHandlers():
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -82,11 +82,11 @@ def update_attributes(conn, update: dict) -> None: #(async)
     for key, value in update.items():
         if key.lower() == "location":
             for id, coords in value.items():
-                conn.geoadd("location", *coords, int(id)) # Coords are 100% float by now, id is string
-                logger.info(f"Added location id:{id}, value:{coords}")
+                res = conn.geoadd("location", *coords, int(id)) # Coords are 100% float by now, id is string
+                logger.info(f"Added location id:{id}, value:{coords}, response code={res}")
         else:
-            conn.set(key, value)
-            logger.info(f"Added key id:{key}, value:{value}")
+            res = conn.set(key, value)
+            logger.info(f"Added key id:{key}, value:{value}, response code={res}")
 
 
 # Same as update_attribute, except it deletes items from redis
@@ -94,11 +94,11 @@ def remove_attributes(redis, update: dict) -> None:
     for key, value in update.items():
         if key.lower() == "location":
             for id, coords in value.items():
-                redis.zrem("location", int(id))
-                logger.info(f"Deleted location {id}")
+                res = redis.zrem("location", int(id))
+                logger.info(f"Deleted location {id}, response code={res}")
         else:
-            redis.delete(key) # Note that this returns '0' if the key didn't exist
-            logger.info(f"Deleted key {key}")
+            res = redis.delete(key) # Note that this returns '0' if the key didn't exist
+            logger.info(f"Deleted key {key}, response code={res}")
 
 
 # Takes an attribute from an item and extracts the type and value of the attribute in Python types
