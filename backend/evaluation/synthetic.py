@@ -56,7 +56,7 @@ def store_users(db: model.RecommendDB, *users: model.User) -> NoReturn:
 def store_clusters(db: model.RecommendDB, *clusters: np.ndarray) -> NoReturn:
 	for c, songs in enumerate(clusters):
 		db.set_cluster(str(c), *songs)
-	db.set_clusters_expiration(time.time())
+	db.set_clusters_time(time.time())
 
 
 def store_features(

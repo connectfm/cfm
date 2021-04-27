@@ -113,11 +113,11 @@ class RecommendDB:
 		songs = (self.to_song_key(s) for s in songs)
 		return self._redis.sadd(self.to_cluster_key(name), *songs)
 
-	def get_clusters_expiration(self) -> float:
+	def get_clusters_time(self) -> float:
 		key = self.get_clusters_time_key()
 		return self.get(key, decoder=util.float_decoder)[0]
 
-	def set_clusters_expiration(self, timestamp: float) -> bool:
+	def set_clusters_time(self, timestamp: float) -> bool:
 		return self._redis.set(self.get_clusters_time_key(), timestamp)
 
 	def cache(
@@ -158,7 +158,7 @@ class RecommendDB:
 		return value
 
 	def _is_valid(self, timestamp: float) -> bool:
-		if c_time := self.get_clusters_expiration():
+		if c_time := self.get_clusters_time():
 			valid = timestamp > c_time
 		else:
 			logger.warning(
