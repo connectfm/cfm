@@ -1,14 +1,13 @@
+import attr
 import codecs
 import logging
+import msgpack_numpy as mp
 import numbers
+import numpy as np
 import pickle
 import random
-from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
-
-import attr
-import msgpack_numpy as mp
-import numpy as np
 import redis
+from typing import Any, Callable, Iterable, Tuple, Union
 
 import util
 
@@ -44,7 +43,7 @@ class RecommendDB:
 	def __exit__(self, exc_type, exc_val, exc_tb):
 		self._redis.close()
 
-	def get(self, *k: str, decoder: Union[Callable, str] = None) -> Any:
+	def get(self, *k: str, decoder: Union[Callable, str] = None) -> Tuple:
 		def decode(x):
 			if isinstance(decoder, str):
 				x = codecs.decode(x, decoder)
@@ -52,20 +51,23 @@ class RecommendDB:
 				x = decoder(x)
 			return x
 
-		db = self._redis
-		if (item := db.get(k[0]) if len(k) == 1 else db.mget(*k)) is not None:
-			if isinstance(item, (List, Tuple)):
-				item = [i if i is None else decode(i) for i in item]
-			else:
-				item = item if item is None else decode(item)
-		return item
+		items = (i if i is None else decode(i) for i in self._redis.mget(*k))
+		return tuple(items)
 
 	def set(
 			self,
 			k: str,
-			v: Union[str, bytes, numbers.Real],
-			expire: int = None) -> bool:
-		return self._redis.set(k, v, ex=expire)
+			v: Any,
+			expire: int = None,
+			encoder: Union[Callable, str] = None) -> bool:
+		def encode(x):
+			if isinstance(encode, str):
+				x = codecs.encode(x, encoder)
+			elif isinstance(encoder, Callable):
+				x = encoder(x)
+			return x
+
+		return self._redis.set(k, encode(v), ex=expire)
 
 	def set_location(self, k: str, long: float, lat: float):
 		return self._redis.geoadd(self.get_geolocation_key(), *(long, lat, k))
@@ -84,7 +86,7 @@ class RecommendDB:
 		if isinstance(value, np.ndarray):
 			value = value.tolist()
 		serialized = {'value': value, 'time': util.NOW.timestamp()}
-		result = self.set(key, pickle.dumps(serialized), expire=expire)
+		result = self.set(key, serialized, encoder=pickle.dumps, expire=expire)
 		self._log_cache_event(result, key, expire)
 
 	@staticmethod
@@ -100,7 +102,7 @@ class RecommendDB:
 	def get_cached(self, k: str) -> Any:
 		"""Returns the cached value"""
 		value = None
-		if data := self.get(k, decoder=pickle.loads):
+		if data := self.get(k, decoder=pickle.loads)[0]:
 			value, timestamp = data['value'], data['time']
 			if self._is_valid(timestamp):
 				logger.info(f'Using cached the value of {k}')
@@ -130,17 +132,11 @@ class RecommendDB:
 
 	def get_clusters_expiration(self) -> float:
 		key = self.get_clusters_time_key()
-		return self.get(key, decoder=util.float_decoder)
+		return self.get(key, decoder=util.float_decoder)[0]
 
 	@classmethod
 	def get_clusters_time_key(cls) -> str:
 		return 'ctime'
-
-	def get_features(self, song_or_user: str) -> Optional[np.ndarray]:
-		logger.debug(f'Retrieving song features for {song_or_user}')
-		if (feats := self.get(song_or_user, decoder=mp.unpackb)) is not None:
-			feats = util.float_array(feats)
-		return feats
 
 	def get_ratings(self, user: str, ne: str, song: str) -> Tuple:
 		logger.debug(
@@ -171,27 +167,31 @@ class RecommendDB:
 		else:
 			return util.float_array(mp.unpackb(taste))
 
-	def get_tastes(self, *users: str) -> Tuple[np.ndarray, np.ndarray]:
-		"""Returns the taste vectors of one or more users."""
-		logger.info(f'Retrieving the music tastes of {len(users)} neighbors')
-		tastes = (self.to_taste_key(u) for u in users)
-		tastes = self.get(*tastes, decoder=mp.unpackb)
-		if missing := [t for t in tastes if t is None]:
+	def get_features(
+			self, *items: str, songs: bool) -> Tuple[np.ndarray, np.ndarray]:
+		"""Returns the feature vectors of one or more users or songs."""
+		logger.info(f'Retrieving the features of {len(items)} items')
+		if songs:
+			feats = (self.to_song_key(i) for i in items)
+		else:
+			feats = (self.to_taste_key(i) for i in items)
+		feats = self.get(*feats, decoder=mp.unpackb)
+		if missing := [f for f in feats if f is None]:
 			logger.warning(
-				f'Unable to find tastes for {len(missing)} of {len(users)} '
-				f'users. Filtering out missing tastes. The following are the '
-				f'users with missing tastes: {missing}')
-			present = [(u, t) for u, t in zip(users, tastes) if t is not None]
-			users = np.array([u for u, _ in present])
-			tastes = util.float_array([t for _, t in present])
-		return users, tastes
+				f'Unable to find features for {len(missing)} of {len(items)} '
+				f'items. Filtering out missing features. The following are '
+				f'the items with missing features: {missing}')
+		present = [(i, f) for i, f in zip(items, feats) if f is not None]
+		items = np.array([i for i, _ in present])
+		feats = util.float_array([f for _, f in present])
+		return items, feats
 
 	def get_neighbors(self, user: User) -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
 		logger.info(f'Finding the neighbors of user {user.name}')
-		if all((user.long, user.lat, user.rad)):
-			ne = self._redis.georadius(
-				user.name, user.long, user.lat, user.rad, unit='mi')
+		if all(loc := (user.long, user.lat, user.rad)):
+			key = self.get_geolocation_key()
+			ne = self._redis.georadius(key, *loc, 'mi')
 			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
 		else:
 			logger.warning(f'Unable to find the location of user {user.name}')
@@ -201,7 +201,8 @@ class RecommendDB:
 	def get_user(self, name: str) -> User:
 		"""Returns a user with all associated attributes populated"""
 		logger.info(f'Retrieving attributes of user {name}')
-		taste = self.get_features(taste_key := self.to_taste_key(name))
+		taste_key = self.to_taste_key(name)
+		_, taste = self.get_features(taste_key, songs=False)
 		bias_and_radius = (self.to_bias_key(name), self.to_radius_key(name))
 		bias, radius = self.get(*bias_and_radius, decoder=util.float_decoder)
 		values = (taste, bias, radius)
@@ -212,7 +213,7 @@ class RecommendDB:
 			logger.warning(
 				f'Unable to find all attributes of user {name}: '
 				f'{[k for k, v in zip(keys, values) if v is None]}')
-		if loc := self._redis.geopos(self.get_geolocation_key(), name):
+		if loc := self.get_location(name):
 			long, lat = loc[0]
 			long, lat, float(long), float(lat)
 		else:
