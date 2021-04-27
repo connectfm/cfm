@@ -10,8 +10,12 @@ MAX_CLUSTERS = int(os.getenv('MAX_CLUSTERS', default=100))
 SEED = os.getenv('SEED')
 LOG_LEVEL = os.getenv('LOG_LEVEL', default=logging.INFO)
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=LOG_LEVEL)
-logger = logging.getLogger(__name__)
+if logging.getLogger().hasHandlers():
+    logger = logging.getLogger()
+    logger.setLevel(LOG_LEVEL)
+else:
+    logger = logging.basicConfig(format='%(levelname)s: %(message)s', level=LOG_LEVEL)
+    logger = logging.getLogger()
 
 
 def handle(event, context):
