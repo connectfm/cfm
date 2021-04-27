@@ -11,8 +11,12 @@ import util
 
 DEFAULT_RATING = 2
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-logger = logging.getLogger(__name__)
+if logging.getLogger().hasHandlers():
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+else:
+    logger = logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
+    logger = logging.getLogger()
 
 
 @attr.s(slots=True)
