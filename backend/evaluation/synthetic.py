@@ -46,11 +46,11 @@ def load_features(dir_path: str) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def store_users(db: model.RecommendDB, *users: model.User) -> NoReturn:
-	for u in users:
-		db.set_bias(u.name, u.bias)
-		db.set_features(u.name, u.taste, song=False)
-		db.set_radius(u.name, u.rad)
-		db.set_location(u.name, u.long, u.lat)
+	names = [u.name for u in users]
+	db.set_bias(names, (u.bias for u in users))
+	db.set_features(names, (u.taste for u in users), song=False)
+	db.set_radius(names, (u.rad for u in users))
+	db.set_location(names, (u.long for u in users), (u.lat for u in users))
 
 
 def store_clusters(db: model.RecommendDB, *clusters: np.ndarray) -> NoReturn:
@@ -63,8 +63,7 @@ def store_features(
 		db: model.RecommendDB,
 		names: np.ndarray,
 		features: np.ndarray) -> NoReturn:
-	for n, f in zip(names, features):
-		db.set_features(n, f, song=True)
+	db.set_features(names, features, song=True)
 
 
 @attr.s(slots=True)

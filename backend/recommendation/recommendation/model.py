@@ -1,5 +1,5 @@
 import codecs
-import numbers
+from numbers import Real
 import pickle
 import random
 from typing import Any, Callable, Iterable, Optional, Sequence, Tuple, Union
@@ -18,10 +18,10 @@ logger = util.get_logger(__name__)
 class User:
 	name = attr.ib(type=str)
 	taste = attr.ib(type=np.ndarray, default=None)
-	bias = attr.ib(type=numbers.Real, default=None)
-	lat = attr.ib(type=numbers.Real, default=None)
-	long = attr.ib(type=numbers.Real, default=None)
-	rad = attr.ib(type=numbers.Real, default=None)
+	bias = attr.ib(type=Real, default=None)
+	lat = attr.ib(type=Real, default=None)
+	long = attr.ib(type=Real, default=None)
+	rad = attr.ib(type=Real, default=None)
 
 
 @attr.s(slots=True)
@@ -57,12 +57,21 @@ class RecommendDB:
 
 	def set(
 			self,
-			key: str,
-			value: Any,
+			keys: Union[str, Iterable[str]],
+			values: Any,
 			*,
 			expire: int = None,
 			encoder: Union[Callable, str] = None) -> bool:
-		return self._redis.set(key, self._encode(value, encoder), ex=expire)
+		if isinstance(keys, str):
+			encoded = self._encode(values, encoder)
+			result = self._redis.set(keys, encoded, ex=expire)
+		else:
+			items = {k: self._encode(v, encoder) for k, v in zip(keys, values)}
+			result = self._redis.mset(items)
+			if expire is not None:
+				for k in items:
+					self._redis.expire(k, expire)
+		return result
 
 	@staticmethod
 	def _encode(value: Any, encoder: Union[Callable, str]):
@@ -72,32 +81,41 @@ class RecommendDB:
 			value = encoder(value)
 		return value
 
-	def get_bias(self, *names: str) -> Sequence[Optional[float]]:
+	def get_bias(self, *names: str) -> Sequence[Optional[Real]]:
 		return self._redis.mget(*(self.to_bias_key(n) for n in names))
 
 	def set_bias(
 			self,
-			name: str,
-			value: numbers.Real,
+			names: Union[str, Iterable[str]],
+			values: Union[Real, Iterable[Real]],
 			expire: int = None) -> bool:
-		return self.set(self.to_bias_key(name), value, expire=expire)
+		keys = (self.to_bias_key(n) for n in names)
+		return self.set(keys, values, expire=expire)
 
-	def get_radius(self, *names: str) -> Sequence[Optional[float]]:
+	def get_radius(self, *names: str) -> Sequence[Optional[Real]]:
 		return self._redis.mget(*(self.to_radius_key(n) for n in names))
 
 	def set_radius(
 			self,
-			name: str,
-			value: float,
+			names: Union[str, Iterable[str]],
+			values: Union[Real, Iterable[Real]],
 			expire: int = None) -> bool:
-		return self.set(self.to_radius_key(name), value, expire=expire)
+		keys = (self.to_radius_key(n) for n in names)
+		return self.set(keys, values, expire=expire)
 
-	def get_location(self, *names: str) -> Sequence[Tuple[float, float]]:
+	def get_location(self, *names: str) -> Sequence[Tuple[Real, Real]]:
 		return self._redis.geopos(self.get_location_key(), *names)
 
-	def set_location(self, name: str, long: float, lat: float) -> bool:
+	def set_location(
+			self,
+			names: Union[str, Iterable[str]],
+			longs: Union[Real, Iterable[Real]],
+			lats: Union[Real, Iterable[Real]]) -> Sequence[bool]:
 		key = self.get_location_key()
-		return self._redis.geoadd(key, *(long, lat, name))
+		result = []
+		for name, long, lat in zip(names, longs, lats):
+			result.append(self._redis.geoadd(key, *(long, lat, name)))
+		return tuple(result)
 
 	def get_clusters(self) -> Iterable[str]:
 		keys = self._redis.scan_iter(match=self.to_cluster_key('*'))
@@ -223,15 +241,15 @@ class RecommendDB:
 
 	def set_features(
 			self,
-			name: str,
-			value: np.ndarray,
+			names: Iterable[str],
+			values: Iterable[np.ndarray],
 			song: bool,
 			expire: int = None) -> bool:
 		if song:
-			key = self.to_song_key(name)
+			keys = (self.to_song_key(n) for n in names)
 		else:
-			key = self.to_taste_key(name)
-		return self.set(key, value, expire=expire, encoder=mp.packb)
+			keys = (self.to_taste_key(n) for n in names)
+		return self.set(keys, values, expire=expire, encoder=mp.packb)
 
 	def get_neighbors(self, user: User, units: str = 'mi') -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
