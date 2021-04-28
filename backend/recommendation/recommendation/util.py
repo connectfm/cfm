@@ -1,8 +1,8 @@
 import datetime
 import logging
-from typing import Union
-
 import numpy as np
+from scipy.spatial import distance
+from typing import Callable, Union
 
 DAY_IN_SECS = 86_400
 NOW = datetime.datetime.utcnow()
@@ -21,6 +21,15 @@ def get_logger(
 
 
 logger = get_logger(__name__)
+
+
+def similarity(x: np.ndarray, y: np.ndarray, metric: Callable) -> np.ndarray:
+	if np.ndim(x) == 1:
+		x = np.array([x])
+		dists = distance.cdist(x, y, metric=metric)[0]
+	else:
+		dists = distance.cdist(x, y, metric=metric)
+	return 1 / (1 + dists)
 
 
 def float_array(arr):
