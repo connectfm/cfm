@@ -37,7 +37,7 @@ class Recommender:
 				'from a random user')
 			user.taste = self.db.get_random_taste()
 		if len(neighbors := self.db.get_neighbors(user)) > 0:
-			neighbors, tastes = self.db.get_features(*neighbors, songs=False)
+			neighbors, tastes = self.db.get_features(*neighbors, song=False)
 			if len(neighbors) > 0:
 				ne = self.sample_neighbor(user, neighbors, tastes)
 			else:
@@ -61,9 +61,7 @@ class Recommender:
 			tastes: np.ndarray) -> model.User:
 		"""Returns a neighbor using taste to weight the sampling."""
 		logger.info(f'Sampling 1 of {len(neighbors)} neighbors of {user.name}')
-		u_taste = np.array([user.taste])
-		dissimilarity = distance.cdist(u_taste, tastes, metric=self.metric)[0]
-		similarity = 1 / (1 + dissimilarity)
+		similarity = util.similarity(user.taste, tastes, metric=self.metric)
 		ne, idx = self.sample(neighbors, similarity, with_index=True)
 		logger.info(f'Sampled neighbor {ne}')
 		return model.User(ne, taste=tastes[idx])
@@ -175,10 +173,10 @@ class Recommender:
 		deltas = util.float_array([util.delta(u_time), util.delta(ne_time)])
 		ratings = capacitive(ratings, deltas)
 		biases = util.float_array([user.bias, 1 - user.bias])
-		if len(features := self.db.get_features(song, songs=True)[1][0]) > 0:
+		if len(features := self.db.get_features(song, song=True)[1][0]) > 0:
 			similarity = util.float_array([
-				1 / (1 + self.metric(user.taste, features)),
-				1 / (1 + self.metric(ne.taste, features))])
+				util.similarity(self.metric(user.taste, features)),
+				util.similarity(self.metric(ne.taste, features))])
 		else:
 			logger.warning(
 				f'Unable to find features for song {song}. Assuming 0 '
