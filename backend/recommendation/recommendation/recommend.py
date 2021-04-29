@@ -1,9 +1,8 @@
-import random
-from typing import Any, Callable, Tuple
-
 import attr
 import numpy as np
+import random
 from scipy.spatial import distance
+from typing import Any, Callable, Tuple
 
 import model
 import util
@@ -97,8 +96,8 @@ class Recommender:
 		"""Returns a song based on user and neighbor contexts."""
 		cluster = self.sample_cluster(user, ne)
 		logger.info(f'Sampling a song to recommend')
-		key = self.db.to_ratings_key(user.name, ne.name, cluster)
-		if cached := self.db.get_cached(key):
+		key = self.db.to_ratings_key(user.name)
+		if cached := self.db.get_cached(key, ne.name, cluster):
 			songs, ratings = cached
 			songs, ratings = np.array(songs), util.float_array(ratings)
 		else:
@@ -110,8 +109,8 @@ class Recommender:
 	def sample_cluster(self, user: model.User, ne: model.User) -> str:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommend a song')
-		key = self.db.to_scores_key(user.name, ne.name)
-		if cached := self.db.get_cached(key):
+		key = self.db.to_scores_key(user.name)
+		if cached := self.db.get_cached(key, ne.name):
 			clusters, scores = cached
 			clusters, scores = np.array(clusters), util.float_array(scores)
 		else:
@@ -139,8 +138,7 @@ class Recommender:
 		logger.debug(f'Number of clusters: {len(clusters)}')
 		logger.debug(f'Number of songs: {sum(per_cluster)}')
 		logger.debug(f'Number of songs per cluster: {per_cluster}')
-		key = self.db.to_scores_key(user.name, ne.name)
-		self.db.cache(key, (clusters, scores), expire=util.DAY_IN_SECS)
+		self.db.cache((clusters, scores), user=user.name, ne=ne.name)
 		return np.array(clusters), util.float_array(scores)
 
 	def adj_rating(self, user: model.User, ne: model.User, song: str) -> int:
@@ -175,8 +173,8 @@ class Recommender:
 		biases = util.float_array([user.bias, 1 - user.bias])
 		if len(features := self.db.get_features(song, song=True)[1][0]) > 0:
 			similarity = util.float_array([
-				util.similarity(self.metric(user.taste, features)),
-				util.similarity(self.metric(ne.taste, features))])
+				util.similarity(user.taste, features, self.metric),
+				util.similarity(ne.taste, features, self.metric)])
 		else:
 			logger.warning(
 				f'Unable to find features for song {song}. Assuming 0 '
@@ -203,6 +201,6 @@ class Recommender:
 			songs.append(song)
 			ratings.append(self.adj_rating(user, ne, song))
 		logger.debug(f'Number of songs in cluster {cluster}: {len(ratings)}')
-		key = self.db.to_ratings_key(user.name, ne.name, cluster)
-		self.db.cache(key, (songs, ratings), expire=util.DAY_IN_SECS)
+		value = (songs, ratings)
+		self.db.cache(value, user=user.name, ne=ne.name, cluster=cluster)
 		return np.array(songs), util.float_array(ratings)
