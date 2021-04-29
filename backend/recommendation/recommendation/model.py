@@ -3,7 +3,6 @@ import codecs
 import json
 import msgpack_numpy as mp
 import numpy as np
-import pickle
 import random
 import redis
 from numbers import Real
@@ -170,21 +169,22 @@ class RecommendDB:
 		# Guaranteed at least 1 entry
 		cached[ne] = {'value': tuple(value), 'time': util.NOW.timestamp()}
 		if len(cached) == self.max_score_caches:
-			# Avoid self-bias having the user also be a neighbor
+			# Avoid duplicate entry of the user, if they are also the neighbor
 			others = np.array([c for c in cached if c != user])
 			users = np.insert(others, 0, user)
 			users, tastes = self.get_features(*users, no_none=True, song=False)
+			# User may have been removed if None
 			if user == users[0]:
+				# Gives back a similarity matrix
 				similarity = util.similarity(tastes, tastes, self.metric)
-				aggregate = np.sum(similarity, axis=0)
+				cumulative = np.sum(similarity, axis=0)
 				# Keep the user in case of no neighbors
-				cached.pop(users[np.argmax(aggregate[1:]) + 1])
+				cached.pop(users[np.argmax(cumulative[1:]) + 1])
 			else:
-				remove = self._rng.choice(others)
+				cached.pop(remove := self._rng.choice(others))
 				logger.warning(
 					f'Unable to find taste of user {user}. Removing {remove} '
 					f'from the cached entries')
-				cached.pop(remove)
 		key = self.to_scores_key(user)
 		updated = self.set(key, cached, encoder=json.dumps)
 		self._log_cache_event(updated, key)
@@ -205,6 +205,7 @@ class RecommendDB:
 			fuzzy: True will try to find the cluster scores whose reference
 				neighbor is at least min_similarity similar to neighbor ne
 				and more similar than all other cached entries.
+
 		Returns:
 			If fuzzy is False, an optional dictionary of cached entries that
 			are still valid, based on their timestamp. Otherwise,
@@ -227,6 +228,16 @@ class RecommendDB:
 		return scores
 
 	def _fuzzy(self, user: str, ne: str, scores: Dict) -> Optional[np.ndarray]:
+		"""Attempts to find the cluster scores of the most similar neighbor.
+
+		Args:
+			user: User of the cached values.
+			ne: Reference neighbor to determine similarity.
+			scores: Valid cached values.
+
+		Returns:
+			A numpy of the cached values, or None if no valid entries exist.
+		"""
 		others, tastes, scores = self._filter(user, ne, scores)
 		if scores := scores if scores else None:
 			ne_taste, o_tastes = tastes
@@ -242,6 +253,22 @@ class RecommendDB:
 			user: str,
 			ne: str,
 			scores: Dict) -> Tuple[np.ndarray, Tuple, Dict]:
+		"""Gets the tastes and filters out missing entries.
+
+		It is possible that scores is empty. In which case, the neighbor is
+		also used as the "other" users that are not the user or neighbor,
+		as well as the tastes.
+
+		Args:
+			user: User of the cached values.
+			ne: Reference neighbor to determine similarity.
+			scores: Valid cached values.
+
+		Returns:
+			A numpy array of "other" users; a tuple where the first entry is
+			the neighbor taste and the second entry are the "other" tastes;
+			and an optional dict of cached cluster scores.
+		"""
 		users = np.array([ne, *(s for s in scores if s != user)])
 		users, tastes = self.get_features(*users, song=False)
 		# Users may just contain neighbor because scores is empty
@@ -277,25 +304,9 @@ class RecommendDB:
 			ne: str,
 			cluster: str,
 			value: np.ndarray):
-		# Same idea as caching cluster scores
-		# Get the cached ratings and filter invalid
-		# If not at max, add
-		# Otherwise, add and remove the least similar one
 		pass
-
-	def cache(
-			self,
-			key: str,
-			value: Any,
-			*,
-			expire: int = None,
-			encoder: Union[Callable, str] = None) -> bool:
-		logger.debug(f'Caching {key} with value {value}')
-		value = self._encode(value, encoder)
-		value = {'value': value, 'time': util.NOW.timestamp()}
-		result = self.set(key, value, encoder=pickle.dumps, expire=expire)
-		self._log_cache_event(result, key, expire)
-		return result
+		logger.info(
+			f'Caching cluster ratings of user {user} and neighbor {ne}')
 
 	@staticmethod
 	def _log_cache_event(result: bool, name: str, expire: int = None):
@@ -306,19 +317,6 @@ class RecommendDB:
 				logger.info(f'Successfully cached {name} for {expire} seconds')
 		else:
 			logger.warning(f'Failed to cache {name}')
-
-	def get_cached(self, key: str) -> Any:
-		if data := self.get(key, decoder=json.loads)[0]:
-			value, timestamp = data['value'], data['time']
-			if self._is_valid(timestamp):
-				logger.info(f'Using cached the value of {key}')
-			else:
-				logger.warning(
-					f'Clusters have been updated since caching {key}')
-		else:
-			logger.warning(f'Cached value of {key} does not exist')
-			value = None
-		return value
 
 	def _is_valid(self, timestamp: float) -> bool:
 		if c_time := self.get_clusters_time():
