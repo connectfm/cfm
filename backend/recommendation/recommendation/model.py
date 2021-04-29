@@ -1,5 +1,6 @@
 import attr
 import codecs
+import functools
 import json
 import msgpack_numpy as mp
 import numpy as np
@@ -30,7 +31,7 @@ class User:
 class RecommendDB:
 	seed = attr.ib(type=Any, default=None)
 	max_score_caches = attr.ib(type=int, default=1)
-	n_rating_caches = attr.ib(type=int, default=1)
+	max_rating_caches = attr.ib(type=int, default=1)
 	min_similarity = attr.ib(type=int, default=None)
 	metric = attr.ib(type=Callable, default=distance.euclidean)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
@@ -138,39 +139,70 @@ class RecommendDB:
 	def set_clusters_time(self, timestamp: float) -> bool:
 		return self._redis.set(self.get_clusters_time_key(), timestamp)
 
-	def cache_scores(
+	def cache(
 			self,
+			value: Iterable[Real],
+			*,
 			user: str,
 			ne: str,
-			value: Iterable[Real]) -> bool:
-		"""Caches the cluster scores of a user.
+			cluster: str = None) -> bool:
+		"""Caches the cluster scores (or ratings) of a user (and cluster).
 
-		The data structure of the cached cluster scores is a mapping from a
-		user to timestamped cluster scores:
+		If caching cluster scores, the data structure is dict from a
+		formatted user key to timestamped cluster scores:
 
 			{<user>: {"value": <scores>, "time": <timestamp>}}
 
+		If caching cluster ratings, the key is formatted to contain cluster
+		information as <user>.<cluster>. The mapping is otherwise the same.
 		The timestamp indicates when the cluster scores were computed.
 
-		When caching scores, there will always be between 1 and
-		max_score_caches in the data structure. When there are
-		max_score_caches in the data structure, the features of all users are
-		used to determine which user to remove. To maximize the probability
-		that a neighbor will be at least min_similarity similar to any one of
-		the cached entries, the entry that is most similar to all other
-		entries is removed. This guarantees the maximum variance in the
-		cached user features.
+		When caching, there will always be between 1 and the set maximum
+		number of entries. When there are the maximum number of entries,
+		the features of all users are used to determine which entry to remove.
+		To maximize the probability that a neighbor will be at least
+		min_similarity similar to any one of the cached entries, the entry
+		that is most similar to all other entries is removed. This guarantees
+		the maximum variance in the cached user features. For cached ratings,
+		the ratings belonging to the oldest cached cluster are removed.
+
+		Args:
+			value: Cluster scores or ratings to cache.
+			user: User associated with the scores or ratings.
+			ne: Reference neighbor to determine similarity.
+			cluster: Cluster associated with the ratings.
 
 		Returns:
 			True if the value was cached successfully, and False otherwise.
 		"""
-		logger.info(f'Caching cluster scores of user {user} and neighbor {ne}')
-		cached = util.if_none(self.get_cached_scores(user, ne), {})
-		# Guaranteed at least 1 entry
-		cached[ne] = {'value': tuple(value), 'time': util.NOW.timestamp()}
-		if len(cached) == self.max_score_caches:
+
+		def pop(__cached: Dict, __user: str) -> NoReturn:
+			if cluster is None:
+				__cached.pop(__user)
+			else:
+				matched = (k for k in __cached if __user in k)
+				times = ((m, __cached[m]['time']) for m in matched)
+				oldest, _ = min(times, key=lambda x: x[1])
+				__cached.pop(oldest)
+
+		if cluster is None:
+			logger.info(
+				f'Caching cluster scores of user {user} and neighbor {ne}')
+			key = functools.partial(lambda n: n)
+			name = functools.partial(lambda k: k)
+			max_entries = self.max_score_caches
+		else:
+			logger.info(
+				f'Caching cluster ratings of user {user}, neighbor {ne} and '
+				f'cluster {cluster}')
+			key = functools.partial(lambda n: f'{n}.{cluster}')
+			name = functools.partial(lambda k: k.split('.')[0])
+			max_entries = self.max_rating_caches
+		cached = util.if_none(self.get_cached(user, ne, cluster), {})
+		cached[key(ne)] = {'value': tuple(value), 'time': util.NOW.timestamp()}
+		if len(cached) == max_entries:
 			# Avoid duplicate entry of the user, if they are also the neighbor
-			others = np.array([c for c in cached if c != user])
+			others = np.array([name(c) for c in cached if user not in c])
 			users = np.insert(others, 0, user)
 			users, tastes = self.get_features(*users, no_none=True, song=False)
 			# User may have been removed if None
@@ -179,97 +211,105 @@ class RecommendDB:
 				similarity = util.similarity(tastes, tastes, self.metric)
 				cumulative = np.sum(similarity, axis=0)
 				# Keep the user in case of no neighbors
-				cached.pop(users[np.argmax(cumulative[1:]) + 1])
+				most_similar = users[np.argmax(cumulative[1:]) + 1]
+				pop(cached, most_similar)
 			else:
-				cached.pop(remove := self._rng.choice(others))
+				pop(cached, remove := self._rng.choice(others))
 				logger.warning(
 					f'Unable to find taste of user {user}. Removing {remove} '
 					f'from the cached entries')
-		key = self.to_scores_key(user)
-		updated = self.set(key, cached, encoder=json.dumps)
-		self._log_cache_event(updated, key)
-		return updated
+			key = self.to_scores_key(user)
+			updated = self.set(key, cached, encoder=json.dumps)
+			self._log_cache_event(updated, key)
+			return updated
 
-	def get_cached_scores(
+	def get_cached(
 			self,
 			user: str,
 			ne: str,
+			cluster: str = None,
 			*,
-			fuzzy: bool = False) -> Union[Dict, np.ndarray, None]:
-		"""Attempts to get the cached cluster scores for a user.
+			fuzzy: bool = False) -> Optional[Union[Dict, np.ndarray]]:
+		"""Attempts to get the cached cluster scores or ratings of a user.
 
 		Args:
-			user: User of the cluster scores.
-			ne: Reference neighbor when finding a fuzzy match to scores. Not
-				used when fuzzy is False.
-			fuzzy: True will try to find the cluster scores whose reference
-				neighbor is at least min_similarity similar to neighbor ne
+			user: User associated with the scores or ratings.
+			ne: Reference neighbor to determine similarity.
+			cluster: Cluster associated with the ratings.
+			fuzzy: True will try to find the cluster values whose reference
+				neighbor is at least min_similarity similar to the neighbor
 				and more similar than all other cached entries.
 
 		Returns:
 			If fuzzy is False, an optional dictionary of cached entries that
 			are still valid, based on their timestamp. Otherwise,
-			an optional numpy array of the cluster scores corresponding to
-			the neighbor that is most similar to the reference neighbor ne.
+			an optional numpy array of the cluster values corresponding to
+			the neighbor that is most similar to the reference neighbor.
 		"""
-		if scores := self.get(self.to_scores_key(user), decoder=json.loads)[0]:
+		if cluster is None:
+			key = self.to_scores_key(user)
+			to_key = functools.partial(lambda n: n)
+		else:
+			key = self.to_ratings_key(user)
+			to_key = functools.partial(lambda n: f'{n}.{cluster}')
+		if cached := self.get(key, decoder=json.loads)[0]:
 			is_valid = self._is_valid
-			# We may not have any valid scores
-			scores = {k: v for k, v in scores.items() if is_valid(v['time'])}
+			# We may not have any valid cached entries
+			cached = {k: v for k, v in cached.items() if is_valid(v['time'])}
 			if fuzzy:
 				# Neighbor could also be the user
-				if ne in scores:
-					scores = scores[ne]['value']
-				elif (scores := self._fuzzy(user, ne, scores)) is None:
-					logger.warning('No valid cached cluster scores exist')
+				if (key := to_key(ne)) in cached:
+					cached = cached[key]['value']
+				elif (cached := self._fuzzy(user, ne, cached)) is None:
+					logger.warning('No valid cached values exist')
 		else:
-			logger.warning(
-				f'Unable to find cached cluster scores for user {user}')
-		return scores
+			logger.warning(f'Unable to find cached values for user {user}')
+		return cached
 
-	def _fuzzy(self, user: str, ne: str, scores: Dict) -> Optional[np.ndarray]:
-		"""Attempts to find the cluster scores of the most similar neighbor.
+	def _fuzzy(self, user: str, ne: str, cached: Dict) -> Optional[np.ndarray]:
+		"""Attempts to find the cluster values of the most similar neighbor.
 
 		Args:
 			user: User of the cached values.
 			ne: Reference neighbor to determine similarity.
-			scores: Valid cached values.
+			cached: Valid cached values.
 
 		Returns:
 			A numpy of the cached values, or None if no valid entries exist.
 		"""
-		others, tastes, scores = self._filter(user, ne, scores)
-		if scores := scores if scores else None:
+		others, tastes, cached = self._filter(user, ne, cached)
+		if cached := cached if cached else None:
 			ne_taste, o_tastes = tastes
 			similarity = util.similarity(ne_taste, o_tastes, self.metric)
 			if any(close_enough := self.min_similarity < similarity):
 				idx = np.flatnonzero(close_enough)
+				# TODO(rdt17) Account for cluster ratings
 				most_similar = others[np.argmax(similarity[idx])]
-				scores = util.float_array(scores[most_similar]['value'])
-		return scores
+				cached = util.float_array(cached[most_similar]['value'])
+		return cached
 
 	def _filter(
 			self,
 			user: str,
 			ne: str,
-			scores: Dict) -> Tuple[np.ndarray, Tuple, Dict]:
+			cached: Dict) -> Tuple[np.ndarray, Tuple, Dict]:
 		"""Gets the tastes and filters out missing entries.
 
-		It is possible that scores is empty. In which case, the neighbor is
+		It is possible that cached is empty. In which case, the neighbor is
 		also used as the "other" users that are not the user or neighbor,
 		as well as the tastes.
 
 		Args:
 			user: User of the cached values.
 			ne: Reference neighbor to determine similarity.
-			scores: Valid cached values.
+			cached: Valid cached values.
 
 		Returns:
 			A numpy array of "other" users; a tuple where the first entry is
 			the neighbor taste and the second entry are the "other" tastes;
-			and an optional dict of cached cluster scores.
+			and an optional dict of cached cluster values.
 		"""
-		users = np.array([ne, *(s for s in scores if s != user)])
+		users = np.array([ne, *(s for s in cached if s != user)])
 		users, tastes = self.get_features(*users, song=False)
 		# Users may just contain neighbor because scores is empty
 		if len(users) == 1:
@@ -281,13 +321,13 @@ class RecommendDB:
 			logger.warning(
 				f'Unable to find the taste of neighbor {ne}. Returning None '
 				f'for the cluster scores')
-			scores = None
+			cached = None
 		elif all(missing := np.isnan(o_tastes)):
 			logger.warning(
 				f'Unable to find any tastes for users. Returning None for the '
 				f'cluster scores. The following users have missing tastes: '
 				f'{others}')
-			scores = None
+			cached = None
 		else:
 			logger.warning(
 				f'Unable to find the tastes of all users. Removing missing '
@@ -295,18 +335,8 @@ class RecommendDB:
 				f'{others[np.flatnonzero(missing)]}')
 			present = np.flatnonzero(~missing)
 			others, o_tastes = others[present], o_tastes[present]
-			scores = {p: scores[p] for p in present}
-		return others, (ne_taste, o_tastes), scores
-
-	def cache_ratings(
-			self,
-			user: str,
-			ne: str,
-			cluster: str,
-			value: np.ndarray):
-		pass
-		logger.info(
-			f'Caching cluster ratings of user {user} and neighbor {ne}')
+			cached = {p: cached[p] for p in present}
+		return others, (ne_taste, o_tastes), cached
 
 	@staticmethod
 	def _log_cache_event(result: bool, name: str, expire: int = None):
@@ -456,8 +486,8 @@ class RecommendDB:
 		return f'cscores:{user}'
 
 	@classmethod
-	def to_ratings_key(cls, user: str, ne: str, cluster: str) -> str:
-		return f'cratings:{user}.{ne}.{cluster}'
+	def to_ratings_key(cls, user: str) -> str:
+		return f'cratings:{user}'
 
 	@classmethod
 	def to_bias_key(cls, user: str) -> str:
