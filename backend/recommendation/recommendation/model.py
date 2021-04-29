@@ -1,6 +1,7 @@
 import attr
 import codecs
 import functools
+import itertools
 import json
 import msgpack_numpy as mp
 import numpy as np
@@ -32,7 +33,7 @@ class RecommendDB:
 	seed = attr.ib(type=Any, default=None)
 	max_score_caches = attr.ib(type=int, default=1)
 	max_rating_caches = attr.ib(type=int, default=1)
-	min_similarity = attr.ib(type=int, default=None)
+	min_similarity = attr.ib(type=int, default=0)
 	metric = attr.ib(type=Callable, default=distance.euclidean)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
 	_redis = attr.ib(type=redis.Redis, init=False, repr=False)
@@ -118,7 +119,8 @@ class RecommendDB:
 			names: Union[str, Iterable[str]],
 			longs: Union[Real, Iterable[Real]],
 			lats: Union[Real, Iterable[Real]]) -> NoReturn:
-		self._redis.geoadd(self.get_location_key(), *zip(longs, lats, names))
+		locs = itertools.chain(*zip(longs, lats, names))
+		self._redis.geoadd(self.get_location_key(), *locs)
 
 	def get_clusters(self) -> Iterable[str]:
 		keys = self._redis.scan_iter(match=self.to_cluster_key('*'))
@@ -188,39 +190,40 @@ class RecommendDB:
 		if cluster is None:
 			logger.info(
 				f'Caching cluster scores of user {user} and neighbor {ne}')
-			key = self._cached_scores_key
+			db_key = self.to_scores_key(user)
+			cache_key = self._cached_scores_key(ne)
 			name = self._cached_scores_name
 			max_entries = self.max_score_caches
 		else:
 			logger.info(
 				f'Caching cluster ratings of user {user}, neighbor {ne} and '
 				f'cluster {cluster}')
-			key = functools.partial(
-				lambda n: self._cached_ratings_key(n, cluster))
+			db_key = self.to_ratings_key(user)
+			cache_key = self._cached_ratings_key(ne, cluster)
 			name = self._cached_ratings_name
 			max_entries = self.max_rating_caches
 		cached = util.if_none(self.get_cached(user, ne, cluster), {})
-		cached[key(ne)] = {'value': value, 'time': util.NOW.timestamp()}
-		if len(cached) == max_entries:
+		cached[cache_key] = {'value': value, 'time': util.NOW.timestamp()}
+		if len(cached) > max_entries:
 			# Avoid duplicate entry of the user, if they are also the neighbor
 			others = np.array([name(c) for c in cached if user not in c])
 			users = np.insert(others, 0, user)
 			users, tastes = self.get_features(*users, no_none=True, song=False)
 			# User may have been removed if None
-			if user == users[0]:
+			if len(users) > 0 and user == users[0]:
 				sim_matrix = util.similarity(tastes, tastes, self.metric)
 				cumulative = np.sum(sim_matrix, axis=0)
 				# Keep the user in case of no neighbors
-				remove = users[np.argmax(cumulative[1:]) + 1]
+				most_similar = users[np.argmax(cumulative[1:]) + 1]
+				pop(cached, most_similar)
 			else:
-				remove = self._rng.choice(others)
-				logger.warning(
-					f'Unable to find taste of user {user}. Removing {remove} '
-					f'from the cached entries')
-			pop(cached, remove)
-		key = self.to_scores_key(user)
-		updated = self.set(key, cached, encoder=json.dumps)
-		self._log_cache_event(updated, key)
+				logger.warning(f'Unable to find taste of user {user}')
+				if len(others) > 0:
+					remove = self._rng.choice(others)
+					logger.warning(f'Removing {remove} from cached entries')
+					pop(cached, remove)
+		updated = self.set(db_key, cached, encoder=json.dumps)
+		self._log_cache_event(updated, db_key)
 		return updated
 
 	@staticmethod
@@ -264,20 +267,19 @@ class RecommendDB:
 		"""
 		if cluster is None:
 			key = self.to_scores_key(user)
-			to_key = self._cached_scores_key
+			cache_key = self._cached_scores_key(ne)
 			log_value = 'scores'
 		else:
 			key = self.to_ratings_key(user)
-			to_key = functools.partial(
-				lambda n: self._cached_ratings_key(n, cluster))
+			cache_key = self._cached_ratings_key(ne, cluster)
 			log_value = 'ratings'
 		logger.info(f'Retrieving cached cluster {log_value} for user {user}')
 		if cached := self.get(key, decoder=json.loads)[0]:
 			is_valid = self._is_valid
 			cached = {k: v for k, v in cached.items() if is_valid(v['time'])}
 			if fuzzy:
-				if (key := to_key(ne)) in cached:
-					cached = cached[key]['value']
+				if cache_key in cached:
+					cached = cached[cache_key]['value']
 				else:
 					cached = self._fuzzy(user, ne, cluster, cached)
 					if cached is None:
@@ -312,15 +314,15 @@ class RecommendDB:
 			idx = np.flatnonzero(close_enough)
 			logger.debug(f'Found {len(idx)} fuzzy matches')
 			if any(close_enough):
-				most_similar = others[np.argmax(similarity[idx])]
+				closest = others[np.argmax(similarity[idx])]
 				if cluster is None:
-					most_similar = self.to_scores_key(most_similar)
+					closest = self._cached_scores_key(closest)
 				else:
-					matched = (k for k in cached if most_similar in k)
+					matched = (k for k in cached if closest in k)
 					times = ((k, cached[k]['time']) for k in matched)
-					most_similar, _ = max(times, key=lambda x: x[1])
-					most_similar = self.to_ratings_key(most_similar)
-				cached = util.float_array(cached[most_similar]['value'])
+					closest, _ = max(times, key=lambda x: x[1])
+					closest = self._cached_ratings_key(closest, cluster)
+				cached = cached[closest]['value']
 				logger.debug(f'Most similar fuzzy match: {cached}')
 		return cached
 
@@ -356,7 +358,7 @@ class RecommendDB:
 			name = self._cached_ratings_name
 			log_value = 'ratings'
 		logger.debug(f'Filtering missing tastes and cached {log_value}')
-		users = (name(ne), *(name(ne) for s in cached if user not in s))
+		users = (name(ne), *(name(s) for s in cached if user not in s))
 		users = np.array(users)
 		users, tastes = self.get_features(*users, song=False)
 		# Users may just contain neighbor because scores is empty
@@ -368,14 +370,14 @@ class RecommendDB:
 		if ne_taste is None:
 			logger.warning(f'Unable to find the taste of neighbor {ne}')
 			cached = None
-		elif all(missing := np.isnan(o_tastes)):
+		elif all(missing := np.array([t is None for t in o_tastes])):
 			logger.warning(
 				f'Unable to find any tastes for users. The following users '
 				f'have missing tastes: {others}')
 			cached = None
-		else:
+		elif any(missing):
 			logger.warning(
-				f'Unable to find the tastes of all users. Removing missing '
+				f'Unable to find the tastes of some users. Removing missing '
 				f'tastes. The following users have missing tastes: '
 				f'{others[np.flatnonzero(missing)]}')
 			present = np.flatnonzero(~missing)
@@ -447,16 +449,19 @@ class RecommendDB:
 			no_none: bool = False) -> Tuple[np.ndarray, np.ndarray]:
 		"""Returns the feature vectors of one or more users or songs."""
 		logger.debug(f'Retrieving the features of {names}')
+		names = np.array(names)
 		if song:
 			keys = (self.to_song_key(n) for n in names)
 		else:
 			keys = (self.to_taste_key(n) for n in names)
 		feats = self.get(*keys, decoder=mp.unpackb)
-		if missing := [f for f in feats if f is None] and no_none:
+		missing = np.array([f is None for f in feats])
+		if any(missing) and no_none:
+			idx = np.flatnonzero(missing)
 			logger.warning(
 				f'Unable to find features for {len(missing)} of {len(names)} '
 				f'items. Filtering out missing features. The following are '
-				f'the items with missing features: {missing}')
+				f'the items with missing features: {names[idx]}')
 			present = [(n, f) for n, f in zip(names, feats) if f is not None]
 		else:
 			present = [(n, f) for n, f in zip(names, feats)]
@@ -478,14 +483,15 @@ class RecommendDB:
 
 	def get_neighbors(self, user: User, units: str = 'mi') -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
-		logger.info(f'Finding the neighbors of user {user.name}')
+		logger.info(f'Finding the neighbors of user {(name := user.name)}')
 		if all(loc := (user.long, user.lat, user.rad)):
 			ne = self._redis.georadius(self.get_location_key(), *loc, units)
-			logger.info(f'Found {len(ne)} neighbors of user {user.name}')
+			ne = [u for n in ne if (u := n.decode('utf-8')) != name]
+			logger.info(f'Found {len(ne)} neighbors of user {name}')
 		else:
-			logger.warning(f'Unable to find the location of user {user.name}')
+			logger.warning(f'Unable to find the location of user {name}')
 			ne = []
-		return np.array([n.decode('utf-8') for n in ne])
+		return np.array(ne)
 
 	def get_user(self, name: str) -> User:
 		"""Returns a user with all associated attributes populated"""

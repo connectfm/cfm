@@ -1,4 +1,5 @@
 import attr
+import codetiming as codetiming
 import numpy as np
 import random
 from scipy.spatial import distance
@@ -27,6 +28,7 @@ class Recommender:
 		logger.debug(f'Distance metric: {self.metric}')
 		logger.debug(f'Seed: {self.seed}')
 
+	@codetiming.Timer(text='Time to recommend: {:0.4f} s', logger=logger.info)
 	def recommend(self, name: str) -> str:
 		"""Returns a recommended song based on a user."""
 		logger.info(f'Retrieving a recommendation for user {name}')
@@ -59,7 +61,8 @@ class Recommender:
 			neighbors: np.ndarray,
 			tastes: np.ndarray) -> model.User:
 		"""Returns a neighbor using taste to weight the sampling."""
-		logger.info(f'Sampling 1 of {len(neighbors)} neighbors of {user.name}')
+		logger.info(
+			f'Sampling 1 of {len(neighbors)} neighbors of user {user.name}')
 		similarity = util.similarity(user.taste, tastes, metric=self.metric)
 		ne, idx = self.sample(neighbors, similarity, with_index=True)
 		logger.info(f'Sampled neighbor {ne}')
@@ -96,12 +99,12 @@ class Recommender:
 		"""Returns a song based on user and neighbor contexts."""
 		cluster = self.sample_cluster(user, ne)
 		logger.info(f'Sampling a song to recommend')
-		key = self.db.to_ratings_key(user.name)
-		if cached := self.db.get_cached(key, ne.name, cluster):
+		cached = self.db.get_cached(user.name, ne.name, cluster, fuzzy=True)
+		if cached is None:
+			songs, ratings = self.compute_ratings(user, ne, cluster)
+		else:
 			songs, ratings = cached
 			songs, ratings = np.array(songs), util.float_array(ratings)
-		else:
-			songs, ratings = self.compute_ratings(user, ne, cluster)
 		song = self.sample(songs, ratings)
 		logger.info(f'Sampled song {song}')
 		return song
@@ -109,12 +112,12 @@ class Recommender:
 	def sample_cluster(self, user: model.User, ne: model.User) -> str:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommend a song')
-		key = self.db.to_scores_key(user.name)
-		if cached := self.db.get_cached(key, ne.name):
+		cached = self.db.get_cached(user.name, ne.name, fuzzy=True)
+		if cached is None:
+			clusters, scores = self.compute_scores(user, ne)
+		else:
 			clusters, scores = cached
 			clusters, scores = np.array(clusters), util.float_array(scores)
-		else:
-			clusters, scores = self.compute_scores(user, ne)
 		cluster = self.sample(clusters, scores)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
@@ -172,9 +175,10 @@ class Recommender:
 		ratings = capacitive(ratings, deltas)
 		biases = util.float_array([user.bias, 1 - user.bias])
 		if len(features := self.db.get_features(song, song=True)[1][0]) > 0:
+			features = np.array([features])
 			similarity = util.float_array([
 				util.similarity(user.taste, features, self.metric),
-				util.similarity(ne.taste, features, self.metric)])
+				util.similarity(ne.taste, features, self.metric)]).flatten()
 		else:
 			logger.warning(
 				f'Unable to find features for song {song}. Assuming 0 '
