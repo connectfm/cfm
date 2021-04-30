@@ -1,13 +1,13 @@
+import attr
 import itertools
 import json
+import numpy as np
 import os
+import pandas as pd
+import random
 import time
 import uuid
 from typing import Any, List, NoReturn, Tuple, Union
-
-import attr
-import numpy as np
-import pandas as pd
 
 import recommend
 import util
@@ -136,18 +136,18 @@ class RecommendData:
 def main():
 	data = RecommendData()
 	keys, features = load_features('data/')
-	keys, features = keys[:1_000], features[:1_000]
-	users = data.get_users(n_users := 10, d=len(features[0]), small_world=True)
-	clusters = data.get_clusters(*keys, n=5)
-	with model.RecommendDB() as db:
+	n_songs = 10_000
+	keys, features = keys[:n_songs], features[:n_songs]
+	users = data.get_users(n_users := 5, d=len(features[0]), small_world=True)
+	clusters = data.get_clusters(*keys, n=2)
+	with model.RecommendDB(
+			min_similarity=0.1, max_scores=1_000, max_ratings=10) as db:
 		store_features(db, keys, features)
 		store_users(db, *users)
 		store_clusters(db, *clusters)
-		for i in range(5):
-			start = time.time()
-			print(recommend.Recommender(db).recommend(users[i % n_users].name))
-			stop = time.time()
-			print(f'Duration: {round(stop - start, 4)} sec')
+		for i in range(50):
+			u = random.randint(0, n_users - 1)
+			recommend.Recommender(db).recommend(users[u].name)
 
 
 if __name__ == '__main__':

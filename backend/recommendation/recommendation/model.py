@@ -209,25 +209,21 @@ class RecommendDB:
 			cumulative = np.sum(sim_matrix, axis=0)
 			# Keep the user in case of no neighbors
 			most_similar = users[np.argmax(cumulative[1:]) + 1]
-			_, cache_key = self._keys(ne=most_similar, cluster=cluster)
-			self._pop(cached, most_similar, cache_key)
+			_, is_most_similar = self._funcs(most_similar, cluster)
+			self._pop(cached, is_most_similar)
 		else:
 			logger.warning(f'Unable to find the taste of user {user}')
 			if len(others) > 0:
 				remove = self._rng.choice(others)
-				_, cache_key = self._keys(ne=remove, cluster=cluster)
+				_, is_remove = self._funcs(remove, cluster)
 				logger.warning(f'Removing {remove} from cached entries')
-				self._pop(cached, remove, cache_key)
+				self._pop(cached, is_remove)
 
-	def _pop(self, cached: Dict, user: str, key: str, cluster: str = None):
-		if cluster is None:
-			cached.pop(key)
-		else:
-			_, is_user = self._funcs(user, cluster)
-			matched = (k for k in cached if is_user(key))
-			times = ((k, cached[k]['time']) for k in matched)
-			oldest, _ = min(times, key=lambda x: x[1])
-			cached.pop(oldest)
+	@staticmethod
+	def _pop(cached: Dict, is_user: Callable[[str], bool]):
+		matched = ((k, v['time']) for k, v in cached.items() if is_user(k))
+		oldest, _ = min(matched, key=lambda x: x[1])
+		cached.pop(oldest)
 
 	def get_cached(
 			self,
@@ -256,13 +252,13 @@ class RecommendDB:
 		db_key, cache_key = self._keys(user, ne, cluster)
 		if cached := self.get(db_key, decoder=json.loads)[0]:
 			valid = self._valid
+			# TODO(rdt17) How do we evict invalid keys?
 			cached = {k: v for k, v in cached.items() if valid(v['time'])}
 		if cached and fuzzy:
 			if cache_key in cached:
 				cached = cached[cache_key]['value']
 			elif (cached := self._fuzzy(cached, user, ne, cluster)) is None:
-				log_value = 'scores' if cluster is None else 'ratings'
-				logger.warning(f'No valid cached {log_value} exist')
+				logger.warning(f'No valid cached {self._log_value()} exist')
 		else:
 			self._log_failure(user, ne, cluster)
 		return cached
@@ -312,13 +308,17 @@ class RecommendDB:
 		Returns:
 			A numpy of the cached values, or None if no valid entries exist.
 		"""
-		logger.debug(f'Finding a fuzzy cached value to neighbor {ne}')
+		logger.info(f'Finding a fuzzy cached value to neighbor {ne}')
 		others, tastes, cached = self._filter(cached, user, ne, cluster)
 		if cached:
 			closest = self._find_closest(cached, others, tastes, cluster)
 		else:
 			closest = None
 		return closest
+
+	@staticmethod
+	def _log_value(cluster: str = None) -> str:
+		return 'scores' if cluster is None else 'ratings'
 
 	def _find_closest(
 			self,
@@ -329,12 +329,14 @@ class RecommendDB:
 		ne_taste, o_tastes = tastes
 		similarity = util.similarity(ne_taste, o_tastes, self.metric)
 		idx = np.flatnonzero(close_enough := self.min_similarity < similarity)
-		logger.debug(f'Found {len(idx)} fuzzy matches')
+		logger.info(f'Found {len(idx)} fuzzy matches')
 		if any(close_enough):
-			closest = others[np.argmax(similarity[idx])]
-			closest = self._closest_key(cached, closest, cluster)
-			closest = cached[closest]['value']
-			logger.debug(f'Most similar fuzzy match: {cached}')
+			user = others[(idx := np.argmax(similarity[idx]))]
+			sim = round(similarity[idx], 4)
+			key = self._closest_key(cached, user, cluster)
+			closest = cached[key]['value']
+			logger.info(
+				f'Most similar fuzzy match (similarity): {user} ({sim})')
 		else:
 			closest = None
 		return closest
@@ -344,11 +346,10 @@ class RecommendDB:
 		if cluster is None:
 			key = self.to_scores_key(closest)
 		else:
-			to_name, is_user = self._funcs(closest, cluster)
-			matched = (to_name(k) for k in cached if is_user(k))
+			_, is_user = self._funcs(closest, cluster)
+			matched = (k for k in cached if is_user(k))
 			times = ((k, cached[k]['time']) for k in matched)
-			newest, _ = max(times, key=lambda x: x[1])
-			key = self.to_ratings_key(newest, cluster)
+			key, _ = max(times, key=lambda x: x[1])
 		return key
 
 	def _filter(
@@ -373,13 +374,13 @@ class RecommendDB:
 			the neighbor taste and the second entry are the "other" tastes;
 			and an optional dict of cached cluster values.
 		"""
-		log_value = 'scores' if cluster is None else 'ratings'
-		logger.debug(f'Filtering missing tastes and cached {log_value}')
+		log_value = self._log_value()
+		logger.info(f'Filtering missing tastes and cached {log_value}')
 		to_name, is_user = self._funcs(user, cluster)
 		names = {ne, *(to_name(k) for k in cached if not is_user(k))}
 		users, tastes = self.get_features(*names, no_none=True, song=False)
 		others, ne_taste, o_tastes = (None,) * 3
-		if len(users) == 0 or users[0] != ne or ne not in cached:
+		if len(users) == 0 or users[0] != ne:
 			cached = None
 		elif len(users) == 1:
 			others = np.array([ne])
@@ -398,8 +399,8 @@ class RecommendDB:
 		else:
 			to_name = functools.partial(lambda k: self.from_ratings_key(k)[0])
 			reg = re.compile(fr'{self.to_ratings_key(user, cluster)}*')
-		not_user = functools.partial(lambda k: reg.match(k) is not None)
-		return to_name, not_user
+		is_user = functools.partial(lambda k: reg.match(k) is not None)
+		return to_name, is_user
 
 	@staticmethod
 	def _log_cache_event(result: bool, name: str, expire: int = None):
@@ -421,9 +422,14 @@ class RecommendDB:
 			valid = True
 		return valid
 
-	def get_songs(self, cluster: str) -> Iterable[str]:
+	def get_songs(self, cluster: str, n_rand: int = None) -> Iterable[str]:
 		key = self.to_cluster_key(cluster)
-		return (self._get_name(s) for s in self._redis.sscan_iter(key))
+		name = self._get_name
+		if n_rand is None:
+			songs = (name(s) for s in self._redis.sscan_iter(key))
+		else:
+			songs = (name(s) for s in self._redis.srandmember(key, n_rand))
+		return songs
 
 	def get_ratings(
 			self,

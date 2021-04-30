@@ -19,6 +19,7 @@ class Recommender:
 	db = attr.ib(type=model.RecommendDB)
 	metric = attr.ib(type=Callable, default=distance.euclidean)
 	max_clusters = attr.ib(type=int, default=100)
+	n_random = attr.ib(type=int, default=None)
 	seed = attr.ib(type=Any, default=None)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
 
@@ -135,9 +136,11 @@ class Recommender:
 			clusters.append(cluster)
 			scores.append(0)
 			per_cluster.append(0)
-			for song in self.db.get_songs(cluster):
+			for song in self.db.get_songs(cluster, self.n_random):
 				scores[i] += self.adj_rating(user, ne, song)
 				per_cluster[i] += 1
+		# Normalizes based on the number of songs per cluster
+		scores = [s / n for s, n in zip(scores, per_cluster)]
 		logger.debug(f'Number of clusters: {len(clusters)}')
 		logger.debug(f'Number of songs: {sum(per_cluster)}')
 		logger.debug(f'Number of songs per cluster: {per_cluster}')
@@ -201,6 +204,7 @@ class Recommender:
 			cluster: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Computes the song ratings for a given user, neighbor, and cluster"""
 		songs, ratings = [], []
+		# TODO(rdt17) Add random sampling here too?
 		for song in self.db.get_songs(cluster):
 			songs.append(song)
 			ratings.append(self.adj_rating(user, ne, song))
