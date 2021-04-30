@@ -2,6 +2,7 @@ package spotify_framework;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.util.Log;
 
 import com.android.volley.AuthFailureError;
@@ -46,7 +47,7 @@ public class PlaybackService {
     }
 
     
-    private void findDevice() {
+    public void findDevice(VolleyCallBack callBack) {
         String endpoint = "https://api.spotify.com/v1/me/player/devices";
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                 Request.Method.GET,
@@ -56,10 +57,14 @@ public class PlaybackService {
                     @Override
 
                     public void onResponse(JSONObject response) {
+                        System.out.println("RESPONSE: " + response);
                         JSONArray devices = response.optJSONArray("devices");
                         for (int i = 0; i < devices.length(); i++) {
                             try {
+                                System.out.println(devices.getString(i));
                                 JSONObject device = devices.getJSONObject(i);
+                                System.out.println(Build.MODEL +" :: " + device.getString("name"));
+                                System.out.println(Build.MODEL.equals(device.getString("name")));
                                 if (device.getString("name").equals(android.os.Build.MODEL)) {
                                     deviceId = device.getString("id");
                                 }
@@ -67,6 +72,7 @@ public class PlaybackService {
                                 e.printStackTrace();
                             }
                         }
+                        callBack.onSuccess();
                     }
                 }, new Response.ErrorListener() {
             @Override
@@ -86,12 +92,45 @@ public class PlaybackService {
         queue.add(jsonObjectRequest);
     }
 
+    public void addToQueue(Song song) {
+        String endpoint = "https://api.spotify.com/v1/me/player/queue";
+        String uri = "uri=" + song.getUri();
+        String device = "device_id=" + deviceId;
+
+        endpoint = endpoint + "?" + uri + "&" + device;
+
+        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+                Request.Method.POST,
+                endpoint,
+                null,
+                new Response.Listener<JSONObject>() {
+                    @Override
+                    public void onResponse(JSONObject response) {
+
+                    }
+                }, new Response.ErrorListener() {
+            @Override
+            public void onErrorResponse(VolleyError error) {
+
+            }
+        }) {
+            @Override
+            public Map<String, String> getHeaders() throws AuthFailureError {
+                Map<String, String> headers = new HashMap<String, String>();
+                String token = preferences.getString("TOKEN", "");
+                String auth = "Bearer " + token;
+                headers.put("Authorization", auth);
+                return headers;
+            }
+        };
+           queue.add(jsonObjectRequest);
+    }
+
     public void play() {
         String endpoint = "https://api.spotify.com/v1/me/player/play";
-        if(deviceId == null) {
-            findDevice();
-        }
+        String device = "device_id=" + deviceId;
 
+        endpoint = endpoint + "?" + device;
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                 Request.Method.PUT,
                 endpoint,
@@ -122,9 +161,8 @@ public class PlaybackService {
 
     public void pause() {
         String endpoint = "https://api.spotify.com/v1/me/player/pause";
-        if(deviceId == null) {
-            findDevice();
-        }
+        String device = "device_id=" + deviceId;
+        endpoint = endpoint + "?" + device;
 
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                 Request.Method.PUT,
@@ -157,9 +195,8 @@ public class PlaybackService {
 
     public void prev() {
         String endpoint = "https://api.spotify.com/v1/me/player/previous";
-        if(deviceId == null) {
-            findDevice();
-        }
+        String device = "device_id=" + deviceId;
+        endpoint = endpoint + "?" + device;
 
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                 Request.Method.POST,
@@ -192,9 +229,8 @@ public class PlaybackService {
 
     public void next() {
         String endpoint = "https://api.spotify.com/v1/me/player/next";
-        if(deviceId == null) {
-            findDevice();
-        }
+        String device = "device_id=" + deviceId;
+        endpoint = endpoint + "?" + device;
 
         JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
                 Request.Method.POST,

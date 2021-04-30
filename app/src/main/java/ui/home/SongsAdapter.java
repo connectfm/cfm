@@ -53,7 +53,6 @@ public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> 
         ImageView albumView = holder.songAlbumArt;
         TextView albumName = holder.albumNameView;
 
-        StringBuilder sb = new StringBuilder();
         if(song.getName().length() > 20) {
             name = song.getName().substring(0,20) + "...";
         }
@@ -68,16 +67,8 @@ public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> 
             album = song.getAlbum();
         }
         Picasso.get().load(song.getImages().get(0)).into(albumView);
-        sb.append(song.getArtists().get(0));
-        for(int i = 1; i < song.getArtists().size(); i++) {
-            sb.append(", " + song.getArtists().get(i));
-        }
-        artists = sb.toString();
 
-        if(artists.length() > 20) {
-            artists = artists.substring(0,20) + "...";
-        }
-
+        artists = song.artistsToString(20);
         nameView.setText(name);
         artistView.setText("By: "+ artists);
         albumName.setText("On: "+ album);
