@@ -15,6 +15,7 @@ MAX_SCORES = None
 MAX_RATINGS = None
 CACHE = None
 N_SONGS = None
+N_NEIGHBORS = None
 METRIC = 'euclidean'
 
 logger = util.get_logger(__name__, LOG_LEVEL)
@@ -43,6 +44,7 @@ def _handle(user: str) -> str:
 			metric=METRIC,
 			cache=CACHE,
 			n_songs=N_SONGS,
+			n_neighbors=N_NEIGHBORS,
 			seed=SEED)
 		return rec.recommend(user)
 

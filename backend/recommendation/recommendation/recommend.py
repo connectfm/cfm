@@ -1,11 +1,10 @@
-import functools
-import random
-from typing import Any, Callable, Optional, Tuple
-
 import attr
 import codetiming
+import functools
 import numpy as np
+import random
 from scipy.spatial import distance
+from typing import Any, Callable, Optional, Tuple
 
 import model
 import util
@@ -21,6 +20,7 @@ class Recommender:
 	db = attr.ib(type=model.RecommendDB)
 	metric = attr.ib(type=Callable, default=distance.euclidean)
 	n_songs = attr.ib(type=int, default=None)
+	n_neighbors = attr.ib(type=int, default=None)
 	cache = attr.ib(type=bool, default=False)
 	seed = attr.ib(type=Any, default=None)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
@@ -40,7 +40,7 @@ class Recommender:
 				f'Unable to find the taste of user {user.name}. Using a taste '
 				'from a random user')
 			user.taste = self.db.get_random_taste()
-		if len(neighbors := self.db.get_neighbors(user)) > 0:
+		if len(neighbors := self.db.get_neighbors(user, self.n_neighbors)) > 0:
 			neighbors, tastes = self.db.get_features(*neighbors, song=False)
 			if len(neighbors) > 0:
 				ne = self.sample_neighbor(user, neighbors, tastes)
@@ -136,18 +136,14 @@ class Recommender:
 			f'{ne.name}')
 		n_songs = self._get_num_songs()
 		clusters, scores, per_cluster = [], [], []
-		for i, cluster in enumerate(self.db.get_clusters()):
+		for cluster in self.db.get_clusters():
 			clusters.append(cluster)
-			scores.append(0)
-			per_cluster.append(0)
-			for song in self.db.get_songs(cluster, n_songs):
-				scores[i] += self.adj_rating(user, ne, song)
-				per_cluster[i] += 1
+			songs = self.db.get_songs(cluster, n_songs)
+			c_scores = np.array([self.adj_rating(user, ne, s) for s in songs])
+			scores.append(sum(c_scores))
+			per_cluster.append(len(c_scores))
 		# Normalizes based on the number of songs per cluster
 		scores = [s / n for s, n in zip(scores, per_cluster)]
-		logger.debug(f'Number of clusters: {len(clusters)}')
-		logger.debug(f'Number of songs sampled: {sum(per_cluster)}')
-		logger.debug(f'Number of songs sampled per cluster: {per_cluster}')
 		if self.cache:
 			self.db.cache((clusters, scores), user=user.name, ne=ne.name)
 		return np.array(clusters), util.float_array(scores)
@@ -160,7 +156,8 @@ class Recommender:
 					f'{n_songs} from each cluster')
 			else:
 				n_songs = int(np.ceil(self.n_songs / n_clusters))
-				logger.info(f'Sampling a max of {n_songs} from each cluster')
+				logger.info(
+					f'Sampling a max of {n_songs} songs from each cluster')
 		else:
 			logger.info(
 				'Number of songs to sample is not specified. Performing '
@@ -223,6 +220,9 @@ class Recommender:
 			ne: model.User,
 			cluster: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Computes the song ratings for a given user, neighbor, and cluster"""
+		logger.info(
+			f'Computing cluster ratings between user {user.name}, neighbor '
+			f'{ne.name}, and cluster {cluster}')
 		songs, ratings = [], []
 		for song in self.db.get_songs(cluster, self.n_songs):
 			songs.append(song)

@@ -1,19 +1,18 @@
+import attr
 import codecs
 import functools
 import itertools
 import json
+import numpy as np
 import random
 import re
+import redis
 from numbers import Real
+from scipy.spatial import distance
 from typing import (
 	Any, Callable, Dict, Iterable, List, NoReturn, Optional, Sequence, Tuple,
 	Union
 )
-
-import attr
-import numpy as np
-import redis
-from scipy.spatial import distance
 
 import util
 
@@ -515,6 +514,8 @@ class RecommendDB:
 			keys = (self.to_song_key(n) for n in names)
 		else:
 			keys = (self.to_taste_key(n) for n in names)
+		values = (
+			v.tolist() if isinstance(v, np.ndarray) else v for v in values)
 		return self.set(keys, values, expire=expire, encoder=FEATURE_ENCODER)
 
 	def get_neighbors(
