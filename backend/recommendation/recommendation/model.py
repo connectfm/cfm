@@ -252,7 +252,6 @@ class RecommendDB:
 		db_key, cache_key = self._keys(user, ne, cluster)
 		if cached := self.get(db_key, decoder=json.loads)[0]:
 			valid = self._valid
-			# TODO(rdt17) How do we evict invalid keys?
 			cached = {k: v for k, v in cached.items() if valid(v['time'])}
 		if cached and fuzzy:
 			if cache_key in cached:
