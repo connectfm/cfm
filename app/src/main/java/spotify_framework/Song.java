@@ -3,6 +3,8 @@ package spotify_framework;
 import android.os.Parcel;
 import android.os.Parcelable;
 
+import com.google.gson.Gson;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +12,7 @@ public class Song {
     private String id;
     private String uri;
     private String name;
-    private int duration;
+    private int duration_ms;
     private List<String> artistsList = new ArrayList<String>();
     private List<String> albumImages = new ArrayList<String>();
     private String artist_id;
@@ -58,4 +60,27 @@ public class Song {
         artistsList.add(artist);
     }
 
+    public String toString() {
+        Gson gson = new Gson();
+        String res = gson.toJson(this);
+        return res;
+    }
+
+    public String artistsToString(int limit) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(getArtists().get(0));
+        for(int i = 1; i < getArtists().size(); i++) {
+            sb.append(", " + getArtists().get(i));
+        }
+
+        String res = sb.toString();
+        if(res.length() > limit) {
+            res = res.substring(0,limit) + "...";
+        }
+       return res;
+    }
+
+    public String getUri() {
+        return uri;
+    }
 }

@@ -22,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cfm.recommend.Recommender;
 import com.example.cfm.R;
+import com.google.gson.Gson;
 import com.squareup.picasso.Picasso;
 
 import spotify_framework.Song;
@@ -32,7 +33,10 @@ import ui.playback.SongFragment;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static java.lang.Thread.sleep;
 
@@ -42,11 +46,13 @@ public class HomeFragment extends Fragment {
     private SongsAdapter adapter;
     private Recommender recommender;
     private Button radioStart;
+    private SharedPreferences preferences;
 
 
 
     public View onCreateView(@NonNull LayoutInflater inflater,
                              ViewGroup container, Bundle savedInstanceState) {
+        preferences = getActivity().getSharedPreferences("SPOTIFY",0);
         View root = inflater.inflate(R.layout.fragment_home, container, false);
         radioStart = (Button) root.findViewById(R.id.begin_listening);
         songService = new SongService(getActivity());
@@ -69,14 +75,17 @@ public class HomeFragment extends Fragment {
                  */
                 songService = new SongService(getActivity());
                 songService.getRecentlyPlayed(() -> {
-                    ArrayList<Song> songUris = songService.getPlaylist();
-                    System.out.println("Song URI size:: " + songUris.size());
-                    SongFragment fragment = new SongFragment();
-                    Bundle queue = new Bundle();
-                    queue.putSerializable("songs", songUris);
+                    List<Song> songList = songService.getPlaylist();
+                    Set<String> songSet = new HashSet<String>();
 
-                    ImageView album = getActivity().findViewById(R.id.album_art);
-                    Picasso.get().load(songUris.get(0).getImages().get(0)).into(album);
+                    for(int i = 0; i < songList.size(); i++){
+                        System.out.println(songList.get(i).toString());
+                        songSet.add(songList.get(i).toString());
+                    }
+                    SharedPreferences.Editor editor = preferences.edit();
+                    editor.putStringSet("songs",songSet);
+                    editor.commit();
+
 
                     NavController navController = Navigation.findNavController(getActivity(), R.id.nav_host_fragment);
                     navController.navigate(R.id.song_dashboard);
