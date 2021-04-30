@@ -84,7 +84,7 @@ public class HomeFragment extends Fragment {
                     }
                     SharedPreferences.Editor editor = preferences.edit();
                     editor.putStringSet("songs",songSet);
-                    editor.commit();
+                    editor.apply();
 
 
                     NavController navController = Navigation.findNavController(getActivity(), R.id.nav_host_fragment);

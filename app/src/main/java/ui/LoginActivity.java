@@ -86,7 +86,7 @@ public class LoginActivity extends AppCompatActivity {
                 case TOKEN:
                     editor = getSharedPreferences("SPOTIFY",0).edit();
                     editor.putString("TOKEN", response.getAccessToken());
-                    editor.commit();
+                    editor.apply();
                     waitForUserInfo();
                     break;
 
@@ -112,7 +112,7 @@ public class LoginActivity extends AppCompatActivity {
             editor.putString("country", user.country);
             Log.d("STARTING", "GOT USER INFORMATION");
             // We use commit instead of apply because we need the information stored immediately
-            editor.commit();
+            editor.apply();
             startMainActivity();
         });
     }
