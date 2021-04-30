@@ -1,9 +1,11 @@
-import attr
-import codetiming as codetiming
-import numpy as np
+import functools
 import random
+from typing import Any, Callable, Optional, Tuple
+
+import attr
+import codetiming
+import numpy as np
 from scipy.spatial import distance
-from typing import Any, Callable, Tuple
 
 import model
 import util
@@ -18,8 +20,8 @@ class Recommender:
 	"""Recommendation system for connect.fm"""
 	db = attr.ib(type=model.RecommendDB)
 	metric = attr.ib(type=Callable, default=distance.euclidean)
-	max_clusters = attr.ib(type=int, default=100)
-	n_random = attr.ib(type=int, default=None)
+	n_songs = attr.ib(type=int, default=None)
+	cache = attr.ib(type=bool, default=False)
 	seed = attr.ib(type=Any, default=None)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
 
@@ -100,26 +102,27 @@ class Recommender:
 		"""Returns a song based on user and neighbor contexts."""
 		cluster = self.sample_cluster(user, ne)
 		logger.info(f'Sampling a song to recommend')
-		cached = self.db.get_cached(user.name, ne.name, cluster, fuzzy=True)
-		if cached is None:
-			songs, ratings = self.compute_ratings(user, ne, cluster)
-		else:
-			songs, ratings = cached
-			songs, ratings = np.array(songs), util.float_array(ratings)
-		song = self.sample(songs, ratings)
+		compute = functools.partial(
+			lambda u, n: self.compute_ratings(u, n, cluster))
+		song = self._sample(user, ne, compute)
 		logger.info(f'Sampled song {song}')
 		return song
+
+	def _sample(
+			self, user: model.User, ne: model.User, compute: Callable) -> Any:
+		if cached := self.cache:
+			cached = self.db.get_cached(user.name, ne.name, fuzzy=True)
+		if cached:
+			population, weights = cached
+		else:
+			population, weights = compute(user, ne)
+		population, weights = np.array(population), util.float_array(weights)
+		return self.sample(population, weights)
 
 	def sample_cluster(self, user: model.User, ne: model.User) -> str:
 		"""Returns a cluster based on user and neighbor contexts."""
 		logger.info('Sampling a cluster from which to recommend a song')
-		cached = self.db.get_cached(user.name, ne.name, fuzzy=True)
-		if cached is None:
-			clusters, scores = self.compute_scores(user, ne)
-		else:
-			clusters, scores = cached
-			clusters, scores = np.array(clusters), util.float_array(scores)
-		cluster = self.sample(clusters, scores)
+		cluster = self._sample(user, ne, self.compute_scores)
 		logger.info(f'Sampled cluster {cluster}')
 		return cluster
 
@@ -131,21 +134,38 @@ class Recommender:
 		logger.info(
 			f'Computing cluster scores between user {user.name} and neighbor '
 			f'{ne.name}')
+		n_songs = self._get_num_songs()
 		clusters, scores, per_cluster = [], [], []
 		for i, cluster in enumerate(self.db.get_clusters()):
 			clusters.append(cluster)
 			scores.append(0)
 			per_cluster.append(0)
-			for song in self.db.get_songs(cluster, self.n_random):
+			for song in self.db.get_songs(cluster, n_songs):
 				scores[i] += self.adj_rating(user, ne, song)
 				per_cluster[i] += 1
 		# Normalizes based on the number of songs per cluster
 		scores = [s / n for s, n in zip(scores, per_cluster)]
 		logger.debug(f'Number of clusters: {len(clusters)}')
-		logger.debug(f'Number of songs: {sum(per_cluster)}')
-		logger.debug(f'Number of songs per cluster: {per_cluster}')
-		self.db.cache((clusters, scores), user=user.name, ne=ne.name)
+		logger.debug(f'Number of songs sampled: {sum(per_cluster)}')
+		logger.debug(f'Number of songs sampled per cluster: {per_cluster}')
+		if self.cache:
+			self.db.cache((clusters, scores), user=user.name, ne=ne.name)
 		return np.array(clusters), util.float_array(scores)
+
+	def _get_num_songs(self) -> Optional[int]:
+		if (n_songs := self.n_songs) is not None:
+			if (n_clusters := self.db.get_num_clusters()) is None:
+				logger.warning(
+					f'Unable to find the number of clusters. Sampling '
+					f'{n_songs} from each cluster')
+			else:
+				n_songs = int(np.ceil(self.n_songs / n_clusters))
+				logger.info(f'Sampling a max of {n_songs} from each cluster')
+		else:
+			logger.info(
+				'Number of songs to sample is not specified. Performing '
+				'an exhaustive scan.')
+		return n_songs
 
 	def adj_rating(self, user: model.User, ne: model.User, song: str) -> int:
 		"""Computes a context-based adjusted rating of a song."""
@@ -204,11 +224,11 @@ class Recommender:
 			cluster: str) -> Tuple[np.ndarray, np.ndarray]:
 		"""Computes the song ratings for a given user, neighbor, and cluster"""
 		songs, ratings = [], []
-		# TODO(rdt17) Add random sampling here too?
-		for song in self.db.get_songs(cluster):
+		for song in self.db.get_songs(cluster, self.n_songs):
 			songs.append(song)
 			ratings.append(self.adj_rating(user, ne, song))
 		logger.debug(f'Number of songs in cluster {cluster}: {len(ratings)}')
 		value = (songs, ratings)
-		self.db.cache(value, user=user.name, ne=ne.name, cluster=cluster)
+		if self.cache:
+			self.db.cache(value, user=user.name, ne=ne.name, cluster=cluster)
 		return np.array(songs), util.float_array(ratings)

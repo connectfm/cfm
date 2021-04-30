@@ -8,9 +8,14 @@ import model
 import recommend
 import util
 
-MAX_CLUSTERS = int(os.getenv('MAX_CLUSTERS', default=100))
 SEED = os.getenv('SEED')
 LOG_LEVEL = os.getenv('LOG_LEVEL', default=logging.INFO)
+MIN_SIMILAR = None
+MAX_SCORES = None
+MAX_RATINGS = None
+CACHE = None
+N_SONGS = None
+METRIC = 'euclidean'
 
 logger = util.get_logger(__name__, LOG_LEVEL)
 
@@ -28,8 +33,17 @@ def handle(event, context):
 
 
 def _handle(user: str) -> str:
-	with model.RecommendDB(SEED) as db:
-		rec = recommend.Recommender(db, max_clusters=MAX_CLUSTERS, seed=SEED)
+	with model.RecommendDB(
+			min_similar=MIN_SIMILAR,
+			max_ratings=MAX_RATINGS,
+			max_scores=MAX_SCORES,
+			seed=SEED) as db:
+		rec = recommend.Recommender(
+			db=db,
+			metric=METRIC,
+			cache=CACHE,
+			n_songs=N_SONGS,
+			seed=SEED)
 		return rec.recommend(user)
 
 

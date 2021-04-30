@@ -1,23 +1,27 @@
-import attr
 import codecs
 import functools
 import itertools
 import json
-import msgpack_numpy as mp
-import numpy as np
 import random
 import re
-import redis
 from numbers import Real
-from scipy.spatial import distance
 from typing import (
 	Any, Callable, Dict, Iterable, List, NoReturn, Optional, Sequence, Tuple,
 	Union
 )
 
+import attr
+import numpy as np
+import redis
+from scipy.spatial import distance
+
 import util
 
 logger = util.get_logger(__name__)
+FEATURE_DECODER = json.loads
+FEATURE_ENCODER = json.dumps
+CACHE_DECODER = json.loads
+CACHE_ENCODER = json.dumps
 
 
 @attr.s(slots=True)
@@ -32,10 +36,10 @@ class User:
 
 @attr.s(slots=True)
 class RecommendDB:
+	max_scores = attr.ib(type=int, default=1, converter=int)
+	max_ratings = attr.ib(type=int, default=1, converter=int)
+	min_similar = attr.ib(type=int, default=0, converter=float)
 	seed = attr.ib(type=Any, default=None)
-	max_scores = attr.ib(type=int, default=1)
-	max_ratings = attr.ib(type=int, default=1)
-	min_similarity = attr.ib(type=int, default=0)
 	metric = attr.ib(type=Callable, default=distance.euclidean)
 	_rng = attr.ib(type=np.random.Generator, init=False, repr=False)
 	_redis = attr.ib(type=redis.Redis, init=False, repr=False)
@@ -128,6 +132,18 @@ class RecommendDB:
 		keys = self._redis.scan_iter(match=self.to_cluster_key('*'))
 		return (self._get_name(k) for k in keys)
 
+	def get_num_clusters(self) -> Optional[int]:
+		key = self.get_num_clusters_key()
+		if (n_clusters := self.get(key, decoder='utf-8')[0]) is None:
+			logger.warning('Unable to find the number of clusters')
+			n_clusters = None
+		else:
+			n_clusters = int(n_clusters)
+		return n_clusters
+
+	def set_num_clusters(self, n: int) -> bool:
+		return self._redis.set(self.get_num_clusters_key(), n)
+
 	@staticmethod
 	def _get_name(encoded: bytes) -> str:
 		return encoded.decode('utf-8').split(':')[-1]
@@ -193,7 +209,7 @@ class RecommendDB:
 		cached[cache_key] = {'value': value, 'time': util.NOW.timestamp()}
 		if len(cached) > max_caches:
 			self._evict(cached, user, cluster)
-		updated = self.set(db_key, cached, encoder=json.dumps)
+		updated = self.set(db_key, cached, encoder=CACHE_ENCODER)
 		self._log_cache_event(updated, db_key)
 		return updated
 
@@ -250,7 +266,7 @@ class RecommendDB:
 		"""
 		self._log_retrieval(user, ne, cluster)
 		db_key, cache_key = self._keys(user, ne, cluster)
-		if cached := self.get(db_key, decoder=json.loads)[0]:
+		if cached := self.get(db_key, decoder=CACHE_DECODER)[0]:
 			valid = self._valid
 			cached = {k: v for k, v in cached.items() if valid(v['time'])}
 		if cached and fuzzy:
@@ -327,7 +343,7 @@ class RecommendDB:
 			cluster: str = None) -> Optional[np.ndarray]:
 		ne_taste, o_tastes = tastes
 		similarity = util.similarity(ne_taste, o_tastes, self.metric)
-		idx = np.flatnonzero(close_enough := self.min_similarity < similarity)
+		idx = np.flatnonzero(close_enough := self.min_similar < similarity)
 		logger.info(f'Found {len(idx)} fuzzy matches')
 		if any(close_enough):
 			user = others[(idx := np.argmax(similarity[idx]))]
@@ -421,13 +437,13 @@ class RecommendDB:
 			valid = True
 		return valid
 
-	def get_songs(self, cluster: str, n_rand: int = None) -> Iterable[str]:
+	def get_songs(self, cluster: str, n: int = None) -> Iterable[str]:
 		key = self.to_cluster_key(cluster)
 		name = self._get_name
-		if n_rand is None:
+		if n is None:
 			songs = (name(s) for s in self._redis.sscan_iter(key))
 		else:
-			songs = (name(s) for s in self._redis.srandmember(key, n_rand))
+			songs = (name(s) for s in self._redis.srandmember(key, n))
 		return songs
 
 	def get_ratings(
@@ -447,10 +463,8 @@ class RecommendDB:
 		logger.debug('Retrieved ratings, and timestamps')
 		return (u_rating, ne_rating), (u_time, ne_time)
 
-	def get_random_taste(self, n: int = 100) -> np.ndarray:
-		logger.info(
-			'Randomly retrieving the music taste from one of the first '
-			f'{n} users')
+	def get_random_taste(self, n: int = 1) -> np.ndarray:
+		logger.info(f'Randomly retrieving the music taste from 1 of {n} users')
 		i, stop, taste = 0, self._rng.integers(n), None
 		for t in self._redis.scan_iter(match=self.to_taste_key('*')):
 			if i > stop:
@@ -461,7 +475,8 @@ class RecommendDB:
 		if taste is None:
 			raise KeyError('Unable to find the taste of any users')
 		else:
-			return util.float_array(mp.unpackb(taste))
+			taste = self._decode(taste, decoder=FEATURE_DECODER)
+			return util.float_array(taste)
 
 	def get_features(
 			self,
@@ -475,7 +490,7 @@ class RecommendDB:
 			keys = (self.to_song_key(n) for n in names)
 		else:
 			keys = (self.to_taste_key(n) for n in names)
-		feats = self.get(*keys, decoder=mp.unpackb)
+		feats = self.get(*keys, decoder=FEATURE_DECODER)
 		missing = np.array([f is None for f in feats])
 		if any(missing) and no_none:
 			idx = np.flatnonzero(missing)
@@ -493,20 +508,25 @@ class RecommendDB:
 	def set_features(
 			self,
 			names: Iterable[str],
-			values: Iterable[np.ndarray],
+			values: Iterable[Sequence[Real]],
 			song: bool,
 			expire: int = None) -> bool:
 		if song:
 			keys = (self.to_song_key(n) for n in names)
 		else:
 			keys = (self.to_taste_key(n) for n in names)
-		return self.set(keys, values, expire=expire, encoder=mp.packb)
+		return self.set(keys, values, expire=expire, encoder=FEATURE_ENCODER)
 
-	def get_neighbors(self, user: User, units: str = 'mi') -> np.ndarray:
+	def get_neighbors(
+			self, user: User,
+			n: int = None,
+			*,
+			units: str = 'mi') -> np.ndarray:
 		"""Returns the other nearby users of a given user."""
 		logger.info(f'Finding the neighbors of user {(name := user.name)}')
 		if all(loc := (user.long, user.lat, user.rad)):
-			ne = self._redis.georadius(self.get_location_key(), *loc, units)
+			key = self.get_location_key()
+			ne = self._redis.georadius(key, *loc, units, count=n)
 			ne = [u for n in ne if (u := n.decode('utf-8')) != name]
 			logger.info(f'Found {len(ne)} neighbors of user {name}')
 		else:
@@ -536,6 +556,10 @@ class RecommendDB:
 			long, lat = None, None
 		return User(
 			name=name, taste=taste, bias=bias, long=long, lat=lat, rad=radius)
+
+	@classmethod
+	def get_num_clusters_key(cls) -> str:
+		return 'nclusters'
 
 	@classmethod
 	def get_clusters_time_key(cls) -> str:

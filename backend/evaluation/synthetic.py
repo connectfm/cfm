@@ -1,13 +1,14 @@
-import attr
 import itertools
 import json
-import numpy as np
 import os
-import pandas as pd
 import random
 import time
 import uuid
 from typing import Any, List, NoReturn, Tuple, Union
+
+import attr
+import numpy as np
+import pandas as pd
 
 import recommend
 import util
@@ -57,13 +58,14 @@ def store_clusters(db: model.RecommendDB, *clusters: np.ndarray) -> NoReturn:
 	for c, songs in enumerate(clusters):
 		db.set_cluster(str(c), *songs)
 	db.set_clusters_time(time.time())
+	db.set_num_clusters(len(clusters))
 
 
 def store_features(
 		db: model.RecommendDB,
 		names: np.ndarray,
 		features: np.ndarray) -> NoReturn:
-	db.set_features(names, features, song=True)
+	db.set_features(names, features.tolist(), song=True)
 
 
 @attr.s(slots=True)
@@ -136,18 +138,19 @@ class RecommendData:
 def main():
 	data = RecommendData()
 	keys, features = load_features('data/')
-	n_songs = 10_000
+	n_songs = 1_000_000
 	keys, features = keys[:n_songs], features[:n_songs]
 	users = data.get_users(n_users := 5, d=len(features[0]), small_world=True)
 	clusters = data.get_clusters(*keys, n=2)
 	with model.RecommendDB(
-			min_similarity=0.1, max_scores=1_000, max_ratings=10) as db:
+			min_similar=0.1, max_scores=1_000, max_ratings=10) as db:
 		store_features(db, keys, features)
 		store_users(db, *users)
 		store_clusters(db, *clusters)
+		rec = recommend.Recommender(db, n_songs=1_000, cache=False)
 		for i in range(50):
 			u = random.randint(0, n_users - 1)
-			recommend.Recommender(db).recommend(users[u].name)
+			rec.recommend(users[u].name)
 
 
 if __name__ == '__main__':
