@@ -1,4 +1,4 @@
-package spotify_framework;
+package spotifyFramework;
 
 public enum Genre {
 	ROCK, POP, COUNTRY, RAP, CLASSICAL, JAZZ, WEIRD;

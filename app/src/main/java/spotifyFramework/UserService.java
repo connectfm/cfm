@@ -1,4 +1,4 @@
-package spotify_framework;
+package spotifyFramework;
 
 import android.content.SharedPreferences;
 import com.android.volley.AuthFailureError;

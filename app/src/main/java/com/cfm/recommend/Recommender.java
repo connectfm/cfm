@@ -7,7 +7,7 @@ import com.android.volley.toolbox.JsonObjectRequest;
 import lombok.Builder;
 import lombok.Value;
 import org.json.JSONObject;
-import spotify_framework.VolleyCallBack;
+import spotifyFramework.VolleyCallBack;
 
 /**
  * Provides song recommendations in the form of song URIs.

@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cfm.R;
 import java.util.List;
 import java.util.Objects;
-import spotify_framework.Playlist;
+import spotifyFramework.Playlist;
 
 //import static com.example.flashcards.TaskFragment.GET_FROM_GALLERY; //not sure if it should be input activity
 

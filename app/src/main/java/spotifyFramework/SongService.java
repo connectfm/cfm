@@ -1,4 +1,4 @@
-package spotify_framework;
+package spotifyFramework;
 
 import android.content.Context;
 import android.content.SharedPreferences;

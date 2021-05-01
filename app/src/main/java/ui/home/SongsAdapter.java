@@ -12,7 +12,7 @@ import com.example.cfm.R;
 import com.squareup.picasso.Picasso;
 import java.util.Collections;
 import java.util.List;
-import spotify_framework.Song;
+import spotifyFramework.Song;
 
 public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> {
 

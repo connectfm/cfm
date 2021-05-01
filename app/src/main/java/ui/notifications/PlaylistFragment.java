@@ -17,8 +17,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.cfm.R;
 import java.util.ArrayList;
 import java.util.List;
-import spotify_framework.Playlist;
-import spotify_framework.Song;
+import spotifyFramework.Playlist;
+import spotifyFramework.Song;
 
 public class PlaylistFragment extends Fragment {
 

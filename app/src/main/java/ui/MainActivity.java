@@ -22,8 +22,8 @@ import com.google.android.gms.location.LocationServices;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
-import spotify_framework.Song;
-import spotify_framework.SongService;
+import spotifyFramework.Song;
+import spotifyFramework.SongService;
 
 public class MainActivity extends AppCompatActivity {
 

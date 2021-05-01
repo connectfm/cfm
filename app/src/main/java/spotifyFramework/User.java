@@ -1,4 +1,4 @@
-package spotify_framework;
+package spotifyFramework;
 
 public class User {
 

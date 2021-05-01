@@ -3,7 +3,7 @@ package ui.databases;
 import android.app.Application;
 import androidx.lifecycle.LiveData;
 import java.util.List;
-import spotify_framework.Playlist;
+import spotifyFramework.Playlist;
 
 public class PlaylistRepo {
 

@@ -26,8 +26,8 @@ import java.util.stream.Collectors;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import spotify_framework.PlaybackService;
-import spotify_framework.Song;
+import spotifyFramework.PlaybackService;
+import spotifyFramework.Song;
 
 
 public class SongFragment extends Fragment {

@@ -16,8 +16,8 @@ import com.spotify.sdk.android.auth.AuthorizationRequest;
 import com.spotify.sdk.android.auth.AuthorizationResponse;
 import org.jetbrains.annotations.NotNull;
 import pub.devrel.easypermissions.EasyPermissions;
-import spotify_framework.User;
-import spotify_framework.UserService;
+import spotifyFramework.User;
+import spotifyFramework.UserService;
 
 public class LoginActivity extends AppCompatActivity {
 

@@ -18,8 +18,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import spotify_framework.Song;
-import spotify_framework.SongService;
+import spotifyFramework.Song;
+import spotifyFramework.SongService;
 
 public class HomeFragment extends Fragment {
 
