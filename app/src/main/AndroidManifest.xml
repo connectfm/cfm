@@ -1,72 +1,71 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.cfm">
+  xmlns:tools="http://schemas.android.com/tools"
+  package="com.example.cfm">
 
 
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <application
+    android:allowBackup="true"
+    android:icon="@mipmap/ic_launcher"
+    android:label="@string/app_name"
+    android:roundIcon="@mipmap/ic_launcher_round"
+    android:supportsRtl="true"
+    android:theme="@style/Theme.Cfm">
+    <activity
+      android:label="@string/title_activity_login"
+      android:name="ui.LoginActivity"
+      android:theme="@style/Theme.Cfm.NoActionBar"></activity>
 
-    <queries>
-        <package android:name="com.spotify.music" />
-        <package android:name="com.example.cfm" />
-    </queries>
+    <activity
+      android:label="@string/app_name"
+      android:name="ui.SplashActivity"
+      android:theme="@style/Theme.Cfm.NoActionBar">
+      <intent-filter>
+        <action android:name="android.intent.action.MAIN" />
 
-    <application
-        android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
-        android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.Cfm">
-        <activity
-            android:name="ui.LoginActivity"
-            android:label="@string/title_activity_login"
-            android:theme="@style/Theme.Cfm.NoActionBar">
-        </activity>
+        <category android:name="android.intent.category.LAUNCHER" />
+      </intent-filter>
+    </activity>
 
-        <receiver
-            android:name="ui.LoginActivity">
-            <intent-filter>
-                <action android:name="com.spotify.music.active"/>
-            </intent-filter>
-        </receiver>
+    <activity
+      android:name="ui.MainActivity"
+      android:theme="@style/Theme.Cfm.NoActionBar" />
 
-        <activity
-            android:name="ui.SplashActivity"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Cfm.NoActionBar">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+    <activity
+      android:exported="true"
+      android:name="com.spotify.sdk.android.authentication.AuthCallbackActivity"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar"
+      tools:ignore="MissingClass">
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
 
-        <activity android:name="ui.MainActivity"
-            android:theme="@style/Theme.Cfm.NoActionBar"/>
-        <activity
-            android:name="com.spotify.sdk.android.authentication.AuthCallbackActivity"
-            android:exported="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            tools:ignore="MissingClass">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
+        <data
+          android:host="@string/com_spotify_sdk_redirect_host"
+          android:scheme="@string/com_spotify_sdk_redirect_scheme" />
+      </intent-filter>
+    </activity>
+    <activity
+      android:name="com.spotify.sdk.android.authentication.LoginActivity"
+      android:theme="@android:style/Theme.Translucent.NoTitleBar"
+      tools:ignore="MissingClass" />
+    <receiver android:name="ui.LoginActivity">
+      <intent-filter>
+        <action android:name="com.spotify.music.active" />
+      </intent-filter>
+    </receiver>
+  </application>
+  <queries>
+    <package android:name="com.spotify.music" />
+    <package android:name="com.example.cfm" />
+  </queries>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
+  <uses-permission android:name="android.permission.INTERNET" />
 
-                <data
-                    android:host="@string/com_spotify_sdk_redirect_host"
-                    android:scheme="@string/com_spotify_sdk_redirect_scheme" />
-            </intent-filter>
-        </activity>
-        <activity
-            android:name="com.spotify.sdk.android.authentication.LoginActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
-            tools:ignore="MissingClass" />
-    </application>
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
 </manifest>

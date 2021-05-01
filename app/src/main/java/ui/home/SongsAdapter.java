@@ -6,99 +6,98 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
-
 import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.RecyclerView;
-
 import com.example.cfm.R;
 import com.squareup.picasso.Picasso;
-
 import java.util.Collections;
 import java.util.List;
-
 import spotify_framework.Song;
 
 public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> {
 
-    private LayoutInflater inflater;
-    List<Song> data = Collections.EMPTY_LIST;
-    Activity activity;
+	private final LayoutInflater inflater;
+	List<Song> data = Collections.EMPTY_LIST;
+	Activity activity;
 
-    public SongsAdapter(FragmentActivity activity, List<Song> data) {
-        this.activity = activity;
-        inflater = LayoutInflater.from(activity);
-        this.data = data;
-    }
+	public SongsAdapter(FragmentActivity activity, List<Song> data) {
+		this.activity = activity;
+		inflater = LayoutInflater.from(activity);
+		this.data = data;
+	}
 
-    public int getItemCount() {
-        return data.size();
-    }
+	public int getItemCount() {
+		return data.size();
+	}
 
-    @Override
-    public ViewHolder onCreateViewHolder(ViewGroup viewGroup, int i) {
-        View view = inflater.inflate(R.layout.song_recyclerview,viewGroup,false);
-        ViewHolder holder = new ViewHolder(view);
+	@Override
+	public ViewHolder onCreateViewHolder(ViewGroup viewGroup, int i) {
+		View view = inflater.inflate(R.layout.song_recyclerview, viewGroup, false);
+		ViewHolder holder = new ViewHolder(view);
 
-        return holder;
-    }
+		return holder;
+	}
 
-    public void onBindViewHolder(SongsAdapter.ViewHolder holder, int position) {
-        String artists;
-        String name;
-        String album;
-        Song song = data.get(position);
+	public void onBindViewHolder(SongsAdapter.ViewHolder holder, int position) {
+		String artists;
+		String name;
+		String album;
+		Song song = data.get(position);
 
-        TextView nameView = holder.songNameView;
-        TextView artistView = holder.songArtistView;
-        ImageView albumView = holder.songAlbumArt;
-        TextView albumName = holder.albumNameView;
+		TextView nameView = holder.songNameView;
+		TextView artistView = holder.songArtistView;
+		ImageView albumView = holder.songAlbumArt;
+		TextView albumName = holder.albumNameView;
 
-        if(song.getName().length() > 20) {
-            name = song.getName().substring(0,20) + "...";
-        }
-        else {
-            name = song.getName();
-        }
+		if (song.getName().length() > 20) {
+			name = song.getName().substring(0, 20) + "...";
+		} else {
+			name = song.getName();
+		}
 
-        if(song.getAlbum().length() > 20) {
-            album = song.getAlbum().substring(0,20) + "...";
-        }
-        else {
-            album = song.getAlbum();
-        }
-        Picasso.get().load(song.getImages().get(0)).into(albumView);
+		if (song.getAlbum().length() > 20) {
+			album = song.getAlbum().substring(0, 20) + "...";
+		} else {
+			album = song.getAlbum();
+		}
+		Picasso.get().load(song.getImages().get(0)).into(albumView);
 
-        artists = song.artistsToString(20);
-        nameView.setText(name);
-        artistView.setText("By: "+ artists);
-        albumName.setText("On: "+ album);
-    }
+		artists = song.artistsToString(20);
+		nameView.setText(name);
+		artistView.setText("By: " + artists);
+		albumName.setText("On: " + album);
+	}
 
-    public class ViewHolder extends RecyclerView.ViewHolder {
-        private TextView songNameView;
-        private TextView songArtistView;
-        private TextView albumNameView;
-        private ImageView songAlbumArt;
+	public class ViewHolder extends RecyclerView.ViewHolder {
 
-        public ViewHolder(View view) {
-            super(view);
+		private final TextView songNameView;
+		private final TextView songArtistView;
+		private final TextView albumNameView;
+		private final ImageView songAlbumArt;
 
-            songNameView = (TextView)view.findViewById(R.id.title);
-            songArtistView = (TextView)view.findViewById(R.id.artist);
-            songAlbumArt = (ImageView)view.findViewById(R.id.album_art);
-            albumNameView = (TextView)view.findViewById(R.id.album);
-        }
+		public ViewHolder(View view) {
+			super(view);
 
-        public ImageView getSongAlbumArt() {return songAlbumArt;}
+			songNameView = (TextView) view.findViewById(R.id.title);
+			songArtistView = (TextView) view.findViewById(R.id.artist);
+			songAlbumArt = (ImageView) view.findViewById(R.id.album_art);
+			albumNameView = (TextView) view.findViewById(R.id.album);
+		}
 
-        public TextView getSongNameView() {
-            return songNameView;
-        }
+		public ImageView getSongAlbumArt() {
+			return songAlbumArt;
+		}
 
-        public TextView getSongArtistView() {
-            return songArtistView;
-        }
+		public TextView getSongNameView() {
+			return songNameView;
+		}
 
-        public TextView getAlbumNameView() {return albumNameView;}
-    }
+		public TextView getSongArtistView() {
+			return songArtistView;
+		}
+
+		public TextView getAlbumNameView() {
+			return albumNameView;
+		}
+	}
 }

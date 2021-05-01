@@ -1,17 +1,12 @@
 package com.cfm.recommend;
 
-import androidx.core.util.Supplier;
-
 import com.android.volley.Request;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
-
-import org.json.JSONObject;
-
-import java.util.concurrent.Callable;
 import lombok.Builder;
 import lombok.Value;
+import org.json.JSONObject;
 import spotify_framework.VolleyCallBack;
 
 /**
@@ -21,7 +16,7 @@ import spotify_framework.VolleyCallBack;
 @Builder
 public class Recommender {
 
-	public void get( final VolleyCallBack callBack) {
+	public void get(final VolleyCallBack callBack) {
 		String endpoint = "https://whateverourURLis.com/";
 		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
 				Request.Method.GET,
@@ -56,5 +51,5 @@ public class Recommender {
 		// Connect to the recommendation system -- may be able to do this through Amplify
 		// Request a recommendation in the form of a song URI
 	}
-	
+
 }

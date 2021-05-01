@@ -1,27 +1,27 @@
 <resources>
-    <string name="app_name">cfm</string>
-    <string name="title_home">Home</string>
-    <string name="title_dashboard">Dashboard</string>
-    <string name="title_notifications">Notifications</string>
-    <string name="com_spotify_sdk_redirect_scheme">https</string>
-    <string name="com_spotify_sdk_redirect_host">example.com/callback/</string>
-    <string name="title_activity_splash">SplashActivity</string>
-    <string name="title_activity_main">MainActivity</string>
-    <!-- Strings used for fragments for navigation -->
-    <string name="first_fragment_label">First Fragment</string>
-    <string name="second_fragment_label">Second Fragment</string>
-    <string name="next">Next</string>
-    <string name="previous">Previous</string>
-    <string name="start_radio">Listen to connect.fm</string>
+  <string name="app_name">cfm</string>
+  <string name="title_home">Home</string>
+  <string name="title_dashboard">Dashboard</string>
+  <string name="title_notifications">Notifications</string>
+  <string name="com_spotify_sdk_redirect_scheme">https</string>
+  <string name="com_spotify_sdk_redirect_host">example.com/callback/</string>
+  <string name="title_activity_splash">SplashActivity</string>
+  <string name="title_activity_main">MainActivity</string>
+  <!-- Strings used for fragments for navigation -->
+  <string name="first_fragment_label">First Fragment</string>
+  <string name="second_fragment_label">Second Fragment</string>
+  <string name="next">Next</string>
+  <string name="previous">Previous</string>
+  <string name="start_radio">Listen to connect.fm</string>
 
-    <string name="hello_first_fragment">Hello first fragment</string>
-    <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
-    <string name="title_activity_login">LoginActivity</string>
-    <string name="create_account">CREATE ACCOUNT</string>
-    <string name="already_user">Already a user?</string>
-    <string name="login_button">LOG IN</string>
-    <string name="listening_history">You\'ve been listening to...</string>
+  <string name="hello_first_fragment">Hello first fragment</string>
+  <string name="hello_second_fragment">Hello second fragment. Arg: %1$s</string>
+  <string name="title_activity_login">LoginActivity</string>
+  <string name="create_account">CREATE ACCOUNT</string>
+  <string name="already_user">Already a user?</string>
+  <string name="login_button">LOG IN</string>
+  <string name="listening_history">You\'ve been listening to...</string>
 
-    <string name="welcome">Welcome</string>
-    <string name="welcome_text">Sign up for free music on your phone, tablet, and computer.</string>
+  <string name="welcome">Welcome</string>
+  <string name="welcome_text">Sign up for free music on your phone, tablet, and computer.</string>
 </resources>

@@ -1,9 +1,12 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
-android:shape="rectangle" >
+  android:shape="rectangle">
 
-<size android:width="100dp" android:height="50dp"/>
-<corners
+  <corners
     android:bottomLeftRadius="168dp"
     android:bottomRightRadius="168dp"
     android:topLeftRadius="168dp"
-    android:topRightRadius="168dp" /></shape>
+    android:topRightRadius="168dp" />
+  <size
+    android:height="50dp"
+    android:width="100dp" />
+</shape>
