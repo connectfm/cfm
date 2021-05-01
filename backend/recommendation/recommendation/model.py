@@ -21,6 +21,8 @@ FEATURE_DECODER = json.loads
 FEATURE_ENCODER = json.dumps
 CACHE_DECODER = json.loads
 CACHE_ENCODER = json.dumps
+LIST_ENCODER = json.dumps
+LIST_DECODER = json.loads
 
 
 @attr.s(slots=True)
@@ -128,8 +130,10 @@ class RecommendDB:
 		self._redis.geoadd(self.get_location_key(), *locs)
 
 	def get_clusters(self) -> Iterable[str]:
-		keys = self._redis.scan_iter(match=self.to_cluster_key('*'))
-		return (self._get_name(k) for k in keys)
+		return self.get(self.get_clusters_key(), decoder=LIST_DECODER)[0]
+
+	def set_clusters(self, *keys: str) -> bool:
+		return self.set(self.get_clusters_key(), keys, encoder=LIST_ENCODER)
 
 	def get_num_clusters(self) -> Optional[int]:
 		key = self.get_num_clusters_key()
@@ -462,20 +466,17 @@ class RecommendDB:
 		logger.debug('Retrieved ratings, and timestamps')
 		return (u_rating, ne_rating), (u_time, ne_time)
 
-	def get_random_taste(self, n: int = 1) -> np.ndarray:
-		logger.info(f'Randomly retrieving the music taste from 1 of {n} users')
-		i, stop, taste = 0, self._rng.integers(n), None
-		for t in self._redis.scan_iter(match=self.to_taste_key('*')):
-			if i > stop:
-				break
-			else:
-				taste = t
-				i += 1
+	def get_random_taste(self) -> np.ndarray:
+		logger.info(f'Randomly retrieving the music taste')
+		tastes = self._redis.scan_iter(match=self.to_taste_key('*'))
+		taste = None
+		for t in zip(range(1), tastes):
+			taste = t
 		if taste is None:
 			raise KeyError('Unable to find the taste of any users')
 		else:
 			taste = self._decode(taste, decoder=FEATURE_DECODER)
-			return util.float_array(taste)
+		return util.float_array(taste)
 
 	def get_features(
 			self,
@@ -485,23 +486,16 @@ class RecommendDB:
 		"""Returns the feature vectors of one or more users or songs."""
 		logger.debug(f'Retrieving the features of {names}')
 		names = np.array(names)
-		if song:
-			keys = (self.to_song_key(n) for n in names)
-		else:
-			keys = (self.to_taste_key(n) for n in names)
-		feats = self.get(*keys, decoder=FEATURE_DECODER)
-		missing = np.array([f is None for f in feats])
-		if any(missing) and no_none:
+		key = self.to_song_key if song else self.to_taste_key
+		feats = self.get(*(key(n) for n in names), decoder=FEATURE_DECODER)
+		if any(missing := np.array([f is None for f in feats])) and no_none:
 			idx = np.flatnonzero(missing)
 			logger.warning(
 				f'Unable to find features for {len(missing)} of {len(names)} '
 				f'items. Filtering out missing features. The following are '
 				f'the items with missing features: {names[idx]}')
-			present = [(n, f) for n, f in zip(names, feats) if f is not None]
-		else:
-			present = [(n, f) for n, f in zip(names, feats)]
-		names = np.array([n for n, _ in present])
-		feats = util.float_array([f for _, f in present])
+		names = names[np.flatnonzero(~missing)]
+		feats = util.float_array([f for f in feats if f is not None])
 		return names, feats
 
 	def set_features(
@@ -510,13 +504,10 @@ class RecommendDB:
 			values: Iterable[Sequence[Real]],
 			song: bool,
 			expire: int = None) -> bool:
-		if song:
-			keys = (self.to_song_key(n) for n in names)
-		else:
-			keys = (self.to_taste_key(n) for n in names)
-		values = (
-			v.tolist() if isinstance(v, np.ndarray) else v for v in values)
-		return self.set(keys, values, expire=expire, encoder=FEATURE_ENCODER)
+		key = self.to_song_key if song else self.to_taste_key
+		keys = (key(n) for n in names)
+		vals = (v.tolist() if isinstance(v, np.ndarray) else v for v in values)
+		return self.set(keys, vals, expire=expire, encoder=FEATURE_ENCODER)
 
 	def get_neighbors(
 			self, user: User,
@@ -528,7 +519,7 @@ class RecommendDB:
 		if all(loc := (user.long, user.lat, user.rad)):
 			key = self.get_location_key()
 			ne = self._redis.georadius(key, *loc, units, count=n)
-			ne = [u for n in ne if (u := n.decode('utf-8')) != name]
+			ne = [u for n in ne if (u := self._decode(n, 'utf-8')) != name]
 			logger.info(f'Found {len(ne)} neighbors of user {name}')
 		else:
 			logger.warning(f'Unable to find the location of user {name}')
@@ -561,6 +552,10 @@ class RecommendDB:
 	@classmethod
 	def get_num_clusters_key(cls) -> str:
 		return 'nclusters'
+
+	@classmethod
+	def get_clusters_key(cls) -> str:
+		return 'clusters'
 
 	@classmethod
 	def get_clusters_time_key(cls) -> str:
