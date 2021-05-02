@@ -1,18 +1,18 @@
-import attr
 import codecs
 import functools
 import itertools
 import json
-import numpy as np
 import random
 import re
-import redis
 from numbers import Real
-from scipy.spatial import distance
 from typing import (
 	Any, Callable, Dict, Iterable, List, NoReturn, Optional, Sequence, Tuple,
-	Union
-)
+	Union)
+
+import attr
+import numpy as np
+import redis
+from scipy.spatial import distance
 
 import util
 
@@ -23,6 +23,7 @@ CACHE_DECODER = json.loads
 CACHE_ENCODER = json.dumps
 LIST_ENCODER = json.dumps
 LIST_DECODER = json.loads
+MAX_REDIS_SET = 524_287
 
 
 @attr.s(slots=True)
@@ -77,14 +78,27 @@ class RecommendDB:
 			*,
 			expire: int = None,
 			encoder: Union[Callable, str] = None) -> bool:
+		"""
+			If the number of values is greater than 524287, they will be
+			chunked and sent as individual calls. See:
+				https://github.com/StackExchange/StackExchange.Redis/issues/201
+		"""
+
+		def _chunk(data: Dict) -> Iterable[Dict]:
+			it = iter(data)
+			return (
+				{k: data[k] for k in itertools.islice(it, MAX_REDIS_SET)}
+				for _ in range(0, len(data), MAX_REDIS_SET))
+
 		if isinstance(keys, str):
-			encoded = self._encode(values, encoder)
-			result = self._redis.set(keys, encoded, ex=expire)
+			items = {keys: self._encode(values, encoder)}
 		else:
 			items = {k: self._encode(v, encoder) for k, v in zip(keys, values)}
-			result = self._redis.mset(items)
+		result = True
+		for chunk in _chunk(items):
+			result &= self._redis.mset(chunk)
 			if expire is not None:
-				for k in items:
+				for k in chunk:
 					self._redis.expire(k, expire)
 		return result
 
