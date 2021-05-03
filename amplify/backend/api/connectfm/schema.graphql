@@ -1,0 +1,58 @@
+type Artist {
+  art_id: String!
+  name: String
+}
+
+type Song {
+  uri: String!
+  name: String
+  artists: [Artist]
+  duration: Int
+}
+
+type Event {
+  song: Song!
+  timestamp: AWSDateTime
+  rating: Int
+}
+
+type History {
+  lastUpdated: String
+  events: [Event]
+}
+
+type SongFeatures {
+  song_id: String!
+  danceability: Float!
+  energy: Float!
+  loudness: Float!
+  speechiness: Float!
+  acousticness: Float!
+  instrumentalness: Float!
+  liveness: Float!
+  valence: Float!
+  tempo: Float!
+  song: Song!
+}
+
+type Playlist {
+  playlist_id: String!
+  name: String!
+  songs: [Song]
+}
+
+type Location {
+  lat: Float!
+  longi: Float!
+  radius: Float
+}
+
+type User @model @auth(rules: [{allow: public}]) {
+  id: ID!
+  email: String!
+  taste: SongFeatures
+  bias: Float
+  location: Location
+  history: History
+}
+ 

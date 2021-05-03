@@ -4,7 +4,7 @@ plugins {
 
 repositories {
     mavenCentral()
-    maven { url "https://jitpack.io" }
+    maven{ url "https://jitpack.io"}
     flatDir {
         dirs 'libs'
     }
@@ -27,11 +27,13 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            matchingFallbacks = ['release', 'debug']
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+
         }
     }
     compileOptions {
-        //coreLibraryDesugaringEnabled true       //requested by Amplify libraries
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -43,7 +45,6 @@ dependencies {
     compileOnly 'org.projectlombok:lombok:1.18.16'
     annotationProcessor 'org.projectlombok:lombok:1.18.16'
     implementation 'com.spotify.android:auth:1.2.3'
-    implementation project(':spotify-app-remote')
     implementation 'com.amplifyframework:aws-datastore:1.17.1'
     implementation 'com.squareup.picasso:picasso:2.71828'
     implementation 'pub.devrel:easypermissions:3.0.0'
@@ -63,4 +64,7 @@ dependencies {
     testImplementation 'junit:junit:4.+'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
+
+    implementation 'com.amplifyframework:aws-api:1.17.1'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:1.1.5'
 }

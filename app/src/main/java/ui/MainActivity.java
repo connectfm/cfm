@@ -1,12 +1,27 @@
 package ui;
 
 import android.Manifest;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
+
+import android.content.SharedPreferences;
 import android.os.HandlerThread;
+import android.util.Log;
+
+import com.amplifyframework.AmplifyException;
+import com.amplifyframework.core.Amplify;
+import com.amplifyframework.datastore.AWSDataStorePlugin;
+import com.example.cfm.R;
+
+
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -14,12 +29,7 @@ import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
-import com.example.cfm.R;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.location.LocationServices;
-import com.google.android.material.bottomnavigation.BottomNavigationView;
+
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
 import spotifyFramework.Song;
@@ -35,11 +45,21 @@ public class MainActivity extends AppCompatActivity {
 	private ArrayList<Song> recentlyPlayed;
 
 
-	@RequiresApi(api = Build.VERSION_CODES.R)
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.activity_main);
+    @RequiresApi(api = Build.VERSION_CODES.R)
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        try {
+            Amplify.addPlugin(new AWSDataStorePlugin());
+            Amplify.configure(getApplicationContext());
+
+            Log.i("MyAmplifyApp", "Initialized Amplify");
+        } catch (AmplifyException error) {
+            Log.e("MyAmplifyApp", "Could not initialize Amplify", error);
+        }
+
+        setContentView(R.layout.activity_main);
 
 		songService = new SongService(getApplicationContext());
 
