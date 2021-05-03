@@ -132,6 +132,7 @@ class RecommendData:
 		n = min(len(items), n)
 		clusters = [list() for _ in range(n)]
 		for c, item in zip(itertools.cycle(range(n)), items):
+			# noinspection PyTypeChecker
 			clusters[c].append(item)
 		return [np.array(c) for c in clusters]
 
@@ -139,19 +140,18 @@ class RecommendData:
 def main():
 	data = RecommendData()
 	keys, features = load_features('data/')
-	n_songs = 500_000
-	n_users = 100_000
+	n_songs = 5000
+	n_users = 1000
 	keys, features = keys[:n_songs], features[:n_songs]
 	users = data.get_users(n_users, d=len(features[0]), small_world=True)
-	clusters = data.get_clusters(*keys, n=2)
-	with model.RecommendDB(
-			min_similar=0.1, max_scores=1_000, max_ratings=10) as db:
+	clusters = data.get_clusters(*keys, n=5)
+	with model.RecommendDB() as db:
 		store_features(db, keys, features)
 		store_users(db, *users)
 		store_clusters(db, *clusters)
 		rec = recommend.Recommender(
 			db, n_songs=1_000, n_neighbors=100, cache=False)
-		for i in range(5):
+		for i in range(1):
 			u = random.randint(0, n_users - 1)
 			rec.recommend(users[u].name)
 

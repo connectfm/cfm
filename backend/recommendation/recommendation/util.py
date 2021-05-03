@@ -33,7 +33,7 @@ def similarity(x: np.ndarray, y: np.ndarray, metric: Callable) -> np.ndarray:
 
 
 def float_array(arr):
-	return np.array(arr, dtype=np.float16)
+	return np.array(arr, dtype=np.float32)
 
 
 def if_none(value, none):
