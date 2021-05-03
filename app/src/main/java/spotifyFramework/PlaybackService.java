@@ -11,6 +11,8 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import org.json.JSONArray;
@@ -94,6 +96,46 @@ public class PlaybackService {
 				Request.Method.POST,
 				endpoint,
 				null,
+				new Response.Listener<JSONObject>() {
+					@Override
+					public void onResponse(JSONObject response) {
+
+					}
+				}, new Response.ErrorListener() {
+			@Override
+			public void onErrorResponse(VolleyError error) {
+
+			}
+		}) {
+			@Override
+			public Map<String, String> getHeaders() throws AuthFailureError {
+				Map<String, String> headers = new HashMap<String, String>();
+				String token = preferences.getString("TOKEN", "");
+				String auth = "Bearer " + token;
+				headers.put("Authorization", auth);
+				return headers;
+			}
+		};
+		queue.add(jsonObjectRequest);
+	}
+
+	public void play(ArrayList<Song> songs) {
+		String endpoint = "https://api.spotify.com/v1/me/player/play";
+		ArrayList<String> uriList = new ArrayList<>();
+		for(int i = 0; i < songs.size(); i++) {
+			uriList.add(songs.get(i).getUri());
+		}
+		Map<String, String[]> uris = new HashMap<>();
+		uris.put("uris",uriList.toArray(new String[uriList.size()]));
+
+		JSONObject params = new JSONObject(uris);
+		String device = "device_id=" + deviceId;
+
+		endpoint = endpoint + "?" + device;
+		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+				Request.Method.PUT,
+				endpoint,
+				params,
 				new Response.Listener<JSONObject>() {
 					@Override
 					public void onResponse(JSONObject response) {
