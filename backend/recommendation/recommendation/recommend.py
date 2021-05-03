@@ -71,10 +71,11 @@ class Recommender:
 					'Using user %s as their own neighbor', name)
 				ne = user
 		else:
+			args = (name, name)
 			logger.warning(
 				'Unable to find neighbors of user %s either because of '
 				'missing attributes or because no users are present within '
-				'the set radius. Using user %s as their own neighbor', name)
+				'the set radius. Using user %s as their own neighbor', *args)
 			ne = user
 		return self.sample_song(user, ne)
 
@@ -89,7 +90,7 @@ class Recommender:
 		similarity = util.similarity(user.taste, tastes, metric=self.metric)
 		ne, idx = self.sample(neighbors, similarity, with_index=True)
 		logger.info('Sampled neighbor %s', ne)
-		return model.User(ne, taste=tastes[idx])
+		return model.User(name=ne, taste=tastes[idx])
 
 	def sample(
 			self,
