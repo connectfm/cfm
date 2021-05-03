@@ -11,6 +11,7 @@ import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
+import com.google.gson.Gson;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,7 +24,9 @@ public class PlaybackService {
 
 	private final SharedPreferences preferences;
 	private final RequestQueue queue;
+	private Song current;
 	private boolean active;
+	private int progress;
 	private String deviceId;
 
 	public PlaybackService(Context context) {
@@ -39,6 +42,48 @@ public class PlaybackService {
 		return deviceId;
 	}
 
+	public Song getCurrentlyPlaying() {return current;}
+
+	public int getProgress() { return progress; }
+
+	public void currentlyPlaying(VolleyCallBack callBack) {
+		String endpoint = "https://api.spotify.com/v1/me/player/currently-playing";
+
+		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+				Request.Method.GET,
+				endpoint,
+				null,
+				new Response.Listener<JSONObject>() {
+					@Override
+					public void onResponse(JSONObject response) {
+						try {
+
+							Gson gson = new Gson();
+							current = gson.fromJson(response.toString(), Song.class);
+							progress = response.getInt("progress_ms");
+						} catch (JSONException e) {
+							e.printStackTrace();
+						} finally {
+							callBack.onSuccess();
+						}
+					}
+				}, new Response.ErrorListener() {
+			@Override
+			public void onErrorResponse(VolleyError error) {
+
+			}
+		}) {
+			@Override
+			public Map<String, String> getHeaders() throws AuthFailureError {
+				Map<String, String> headers = new HashMap<String, String>();
+				String token = preferences.getString("TOKEN", "");
+				String auth = "Bearer " + token;
+				headers.put("Authorization", auth);
+				return headers;
+			}
+		};
+		queue.add(jsonObjectRequest);
+	}
 
 	public void findDevice(VolleyCallBack callBack) {
 		String endpoint = "https://api.spotify.com/v1/me/player/devices";
@@ -107,6 +152,44 @@ public class PlaybackService {
 
 			}
 		}) {
+			@Override
+			public Map<String, String> getHeaders() throws AuthFailureError {
+				Map<String, String> headers = new HashMap<String, String>();
+				String token = preferences.getString("TOKEN", "");
+				String auth = "Bearer " + token;
+				headers.put("Authorization", auth);
+				return headers;
+			}
+		};
+		queue.add(jsonObjectRequest);
+	}
+
+	public void play(Song song, int position){
+		String endpoint = "https://api.spotify.com/v1/me/player/play";
+		String[] songUri = new String[]{song.getUri()};
+		String pos = String.valueOf(position);
+
+		Map<String, String> params = new HashMap<>();
+		params.put("uris", songUri.toString());
+		params.put("position_ms", pos);
+
+		JSONObject parameters = new JSONObject(params);
+
+		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+				Request.Method.PUT,
+				endpoint,
+				parameters,
+				new Response.Listener<JSONObject>() {
+					@Override
+					public void onResponse(JSONObject response) {
+
+					}
+				}, new Response.ErrorListener() {
+			@Override
+			public void onErrorResponse(VolleyError error) {
+
+			}
+		}){
 			@Override
 			public Map<String, String> getHeaders() throws AuthFailureError {
 				Map<String, String> headers = new HashMap<String, String>();

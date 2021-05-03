@@ -11,6 +11,7 @@ import androidx.annotation.RequiresApi;
 import androidx.fragment.app.Fragment;
 
 import android.os.CountDownTimer;
+import android.os.Handler;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -61,7 +62,9 @@ public class SongFragment extends Fragment {
     private boolean isPaused = false;
     private Long songLeft;
     private int songPos = 0;
-    Runnable runnable;
+    private Runnable runnable;
+    private Handler handler;
+
 
 
 
@@ -76,11 +79,11 @@ public class SongFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View root = inflater.inflate(R.layout.fragment_song, container, false);
-        initializeObjects(root);
         initializeSongInfo(() -> {
             setSongLayout(root,songQueue.get(0));
+            initializeObjects(root);
+            initializeSeekBar(songQueue.get(0));
             firstPlay();
-
         });
         return root;
     }
@@ -105,6 +108,7 @@ public class SongFragment extends Fragment {
         artists = view.findViewById(R.id.song_artist);
         albumName = view.findViewById(R.id.song_album);
         songName = view.findViewById(R.id.song_title);
+        albumArt = view.findViewById(R.id.album_art);
 
         Picasso.get().load(song.getImages().get(0)).into(albumArt);
         artists.setText(song.artistsToString(Integer.MAX_VALUE));
@@ -125,15 +129,13 @@ public class SongFragment extends Fragment {
 
     private void firstPlay() {
         playbackService.findDevice(() -> {
-
             playbackService.play(songQueue);
         });
 
     }
 
 
-    private void playSong(Long duration) {
-
+    private void playSong() {
 
         playbackService.findDevice(() -> {
             playbackService.play();
@@ -162,6 +164,8 @@ public class SongFragment extends Fragment {
         albumArt = v.findViewById(R.id.album_art);
         seekBar = v.findViewById(R.id.progressBar);
         Long duration = songQueue.get(songPos).getDuration()/1000;
+        handler = new Handler();
+
         seekBar.setMax(duration.intValue());
 
 
@@ -171,7 +175,7 @@ public class SongFragment extends Fragment {
             public void onClick(View v) {
                 if(isPaused) {
                     isPaused = false;
-                    playSong(songLeft);
+                    playSong();
                     playButton.setText("Pause");
                 }
                 else {
@@ -202,15 +206,37 @@ public class SongFragment extends Fragment {
     }
 
     protected void initializeSeekBar(Song currentSong) {
-        seekBar.setMax((currentSong.getDuration().intValue()) / 1000);
-       runnable = new Runnable() {
+        seekBar.setMax((currentSong.getDuration().intValue()));
+
+        seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override
+            public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
+                if(fromUser) {
+                    playbackService.play(songQueue.get(songPos),progress);
+                }
+            }
+
+            @Override
+            public void onStartTrackingTouch(SeekBar seekBar) {
+
+            }
+
+            @Override
+            public void onStopTrackingTouch(SeekBar seekBar) {
+
+            }
+        });
+        runnable = new Runnable() {
            @Override
            public void run() {
-               playbackService.findDevice(() -> {
-                   if(playbackService.getDeviceId() != null) {
-                   }
+               playbackService.currentlyPlaying(() -> {
+                   int currentPos = playbackService.getProgress();
+                   seekBar.setProgress(currentPos);
                });
+               handler.postDelayed(runnable,1000);
+
            }
        };
+       handler.postDelayed(runnable,1000);
     }
 }
