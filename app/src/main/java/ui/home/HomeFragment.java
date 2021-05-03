@@ -30,9 +30,7 @@ public class HomeFragment extends Fragment {
 	private Button radioStart;
 	private SharedPreferences preferences;
 
-
-	public View onCreateView(@NonNull LayoutInflater inflater,
-			ViewGroup container, Bundle savedInstanceState) {
+	public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 		preferences = getActivity().getSharedPreferences("SPOTIFY", 0);
 		View root = inflater.inflate(R.layout.fragment_home, container, false);
 		radioStart = (Button) root.findViewById(R.id.begin_listening);
@@ -45,42 +43,16 @@ public class HomeFragment extends Fragment {
 			recyclerView.setAdapter(adapter);
 			recyclerView.setLayoutManager(new LinearLayoutManager(getActivity()));
 		});
-		radioStart.setOnClickListener(new View.OnClickListener() {
-			@Override
-			public void onClick(View v) {
-				//Ask the recommender for a set of songs to place in queue
-				//Send most recent location and recent songs w/ neutral rating to DataStore
-                /*
-                This is for testing to make sure song information is being transferred to the
-                playback fragment and that the playback fragment plays the correct songs
-                 */
-				songService = new SongService(getActivity());
-				songService.getRecentlyPlayed(() -> {
-					List<Song> songList = songService.getPlaylist();
-					Set<String> songSet = new HashSet<String>();
 
-					for (int i = 0; i < songList.size(); i++) {
-						System.out.println(songList.get(i).toString());
-						songSet.add(songList.get(i).toString());
-					}
-					SharedPreferences.Editor editor = preferences.edit();
-					editor.putStringSet("songs", songSet);
-					editor.apply();
-
+        radioStart.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
 					NavController navController = Navigation
 							.findNavController(getActivity(), R.id.nav_host_fragment);
 					navController.navigate(R.id.song_dashboard);
-				});
-
 			}
 		});
 
 		return root;
-	}
-
-	@Override
-	public void onActivityCreated(Bundle savedInstanceState) {
-		super.onActivityCreated(savedInstanceState);
-
 	}
 }

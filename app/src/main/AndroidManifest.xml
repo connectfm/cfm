@@ -2,7 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:tools="http://schemas.android.com/tools"
   package="com.example.cfm">
-
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.INTERNET" />
+  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
   <application
     android:allowBackup="true"
@@ -61,11 +64,4 @@
     <package android:name="com.spotify.music" />
     <package android:name="com.example.cfm" />
   </queries>
-  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-
-  <uses-permission android:name="android.permission.INTERNET" />
-
-  <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
 </manifest>

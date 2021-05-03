@@ -9,7 +9,7 @@ public class Song {
 	private final String id;
 	private String uri;
 	private String name;
-	private int duration_ms;
+	private Long duration_ms;
 	private List<String> artistsList = new ArrayList<String>();
 	private List<String> albumImages = new ArrayList<String>();
 	private String artist_id;
@@ -85,5 +85,9 @@ public class Song {
 
 	public String getUri() {
 		return uri;
+	}
+
+	public Long getDuration() {
+		return duration_ms;
 	}
 }
