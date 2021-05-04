@@ -123,3 +123,4 @@ app/build/tmp/compileDebugJavaWithJavac/source-classes-mapping.txt
 
 # Python venv
 venv/
+__pycache__/
