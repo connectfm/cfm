@@ -1,5 +1,6 @@
 import attr
 import codecs
+import datetime
 import functools
 import itertools
 import json
@@ -15,7 +16,7 @@ from typing import (
 
 import util
 
-logger = util.get_logger(__name__)
+logger = util.get_logger(__name__, level='DEBUG')
 # Type aliases
 _Strings = Union[str, Iterable[str]]
 _Values = Union[Any, Iterable[Any]]
@@ -167,13 +168,13 @@ class RecommendDB:
 			items = {keys: self._encode(values, encoder)}
 		else:
 			items = {k: self._encode(v, encoder) for k, v in zip(keys, values)}
-		result = True
+		pipe = self._redis.pipeline()
 		for chunk in _chunk(items):
-			result &= self._redis.mset(chunk)
+			pipe.mset(chunk)
 			if expire is not None:
 				for k in chunk:
-					self._redis.expire(k, expire)
-		return result
+					pipe.expire(k, expire)
+		return all(pipe.execute())
 
 	def get_bias(self, *names: str) -> _Biases:
 		"""Gets the bias of all users with the specified names."""
@@ -243,15 +244,50 @@ class RecommendDB:
 		clusters = self.get(self.get_clusters_key(), decoder=_LIST_DECODER)[0]
 		return (self._get_name(c) for c in clusters)
 
-	def set_clusters(self, *names: str) -> bool:
-		"""Sets the names of all the clusters.
+	def set_clusters(
+			self,
+			names: _Strings,
+			songs: Sequence[_Strings],
+			*,
+			replace: bool = True) -> bool:
+		"""Sets the clusters, number of clusters, and clusters timestamp.
+
+		All set operations are done as one transaction, so if at least one
+		set operation fails, all of them do.
+
+		Args:
+			names: A string or iterable of strings indicating the cluster
+				names.
+			songs: A sequence of strings or sequence of iterables of strings
+				indicating the songs to add to each cluster.
+			replace: If True, deletes the contents of the clusters, if they
+				already exist. Otherwise, the songs will be added to an
+				existing cluster.
 
 		Returns:
-			True if the cluster names were set successfully, and False
-			otherwise.
+			True if all set operations succeed and false otherwise.
 		"""
-		keys = tuple(self.to_cluster_key(n) for n in names)
-		return self.set(self.get_clusters_key(), keys, encoder=_LIST_ENCODER)
+
+		def wrap(val, test) -> np.ndarray:
+			if isinstance(test, str):
+				wrapped = np.array([val])
+			else:
+				wrapped = val
+			return wrapped
+
+		names, songs = wrap(names, names), wrap(songs, songs[0])
+		keys = np.array([self.to_cluster_key(n) for n in names])
+		pipe = self._redis.pipeline()
+		if replace:
+			pipe.delete(*keys)
+		for k, c_songs in zip(keys, songs):
+			pipe.sadd(k, *(self.to_song_key(s) for s in c_songs))
+		keys = keys.tolist()
+		pipe.mset({
+			self.get_clusters_key(): self._encode(keys, encoder=_LIST_ENCODER),
+			self.get_num_clusters_key(): len(songs),
+			self.get_clusters_time_key(): datetime.datetime.now().timestamp()})
+		return all(pipe.execute())
 
 	def get_num_clusters(self) -> _NumClusters:
 		"""Gets the number of clusters."""
@@ -260,51 +296,10 @@ class RecommendDB:
 			n_clusters = int(n_clusters)
 		return n_clusters
 
-	def set_num_clusters(self, n: int) -> bool:
-		"""Sets the number of clusters.
-
-		Returns:
-			True if the number of clusters was set successfully and False
-			otherwise.
-		"""
-		return self._redis.set(self.get_num_clusters_key(), n)
-
-	def set_cluster(self, name: str, *songs: Any, clear: bool = False) -> bool:
-		"""Sets a cluster of the given name to contain the given songs.
-
-		Returns:
-			True if the setting (and clearing, if True) of the cluster was
-			successful, and False otherwise.
-		"""
-		clear_result = True
-		if clear:
-			clear_result = self.clear_cluster(name)
-		songs = (self.to_song_key(s) for s in songs)
-		set_result = self._redis.sadd(self.to_cluster_key(name), *songs)
-		return clear_result and set_result
-
-	def clear_cluster(self, name: str) -> bool:
-		"""Clears the cluster, if it exists.
-
-		Returns:
-			True if the cluster was cleared successfully and False otherwise.
-		"""
-		if self._redis.exists(key := self.to_cluster_key(name)):
-			self._redis.delete(key)
-		return self._redis.sadd(key)
-
 	def get_clusters_time(self) -> float:
 		"""Gets the time at which the clusters were created as a timestamp."""
 		key = self.get_clusters_time_key()
 		return self.get(key, decoder=util.float_decoder)[0]
-
-	def set_clusters_time(self, timestamp: float) -> bool:
-		"""Sets the created-at timestamp of the clusters.
-
-		Returns:
-			True if the time was set successfully and False otherwise.
-		"""
-		return self.set(self.get_clusters_time_key(), timestamp)
 
 	def get_songs(self, cluster: str, n: int = None) -> Iterable[str]:
 		"""Gets the songs of a cluster.
@@ -533,7 +528,9 @@ class RecommendDB:
 		max_caches = self.max_scores if cluster is None else self.max_ratings
 		db_key, cache_key = self._keys(user, ne, cluster)
 		cached = util.if_none(self.get_cached(user, ne, cluster), {})
-		cache = {'value': tuple(value), 'time': util.NOW.timestamp()}
+		cache = {
+			'value': tuple(value),
+			'time': datetime.datetime.utcnow().timestamp()}
 		cached[cache_key] = cache
 		if len(cached) > max_caches:
 			self._evict(cached, user, cluster)

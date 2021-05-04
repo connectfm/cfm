@@ -5,7 +5,6 @@ import numpy as np
 import os
 import pandas as pd
 import random
-import time
 import uuid
 from typing import Any, List, NoReturn, Tuple, Union
 
@@ -54,12 +53,8 @@ def store_users(db: model.RecommendDB, *users: model.User) -> NoReturn:
 
 
 def store_clusters(db: model.RecommendDB, *clusters: np.ndarray) -> NoReturn:
-	ids = [str(c) for c in range(len(clusters))]
-	for c, songs in zip(ids, clusters):
-		db.set_cluster(c, *songs)
-	db.set_clusters_time(time.time())
-	db.set_num_clusters(len(clusters))
-	db.set_clusters(*ids)
+	ids = np.arange(len(clusters)).astype('<U8')
+	db.set_clusters(ids, clusters, replace=True)
 
 
 def store_features(
@@ -150,7 +145,7 @@ def main():
 		store_users(db, *users)
 		store_clusters(db, *clusters)
 		rec = recommend.Recommender(
-			db, n_songs=1_000, n_neighbors=100, cache=False)
+			db, n_songs=100, n_neighbors=10, cache=False)
 		for i in range(1):
 			u = random.randint(0, n_users - 1)
 			rec.recommend(users[u].name)

@@ -5,7 +5,6 @@ from scipy.spatial import distance
 from typing import Callable, Union
 
 DAY_IN_SECS = 86_400
-NOW = datetime.datetime.utcnow()
 
 
 def get_logger(
@@ -47,7 +46,8 @@ def float_decoder(b: bytes) -> float:
 def delta(timestamp: float) -> float:
 	"""Returns the difference in days between a timestamp and now."""
 	logger.debug(f'Computing time delta of timestamp {timestamp}')
-	diff = NOW - datetime.datetime.utcfromtimestamp(timestamp)
+	now = datetime.datetime.utcnow()
+	diff = now - datetime.datetime.utcfromtimestamp(timestamp)
 	diff = diff.total_seconds() / DAY_IN_SECS
 	logger.debug(f'Computed time delta (days): {diff}')
 	return diff

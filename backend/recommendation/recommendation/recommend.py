@@ -1,5 +1,6 @@
 import attr
 import codetiming
+import datetime
 import functools
 import numbers
 import numpy as np
@@ -12,7 +13,7 @@ import util
 
 DEFAULT_RATING = 2
 
-logger = util.get_logger(__name__)
+logger = util.get_logger(__name__, 'DEBUG')
 _Metric = Callable[[Any, Any], numbers.Real]
 
 
@@ -113,7 +114,7 @@ class Recommender:
 			idx, chosen = int(idx_and_chosen[0]), idx_and_chosen[1:]
 			chosen = chosen.item() if chosen.shape == (1,) else chosen
 			logger.debug(
-				'Sampled element (index): {%s} (%d)', repr(chosen), idx)
+				'Sampled element (index): %s (%d)', repr(chosen), idx)
 			chosen = (chosen, idx)
 		else:
 			chosen = self._rng.choice(population, p=probs)
@@ -190,6 +191,7 @@ class Recommender:
 		logger.debug(
 			'Computing the adjusted rating of %s based on user %s and their '
 			'neighbor %s', song, user.name, ne.name)
+		now = datetime.datetime.utcnow().timestamp()
 
 		def capacitive(r, t):
 			r = np.where(r < DEFAULT_RATING, -np.exp(-t) + DEFAULT_RATING, r)
@@ -202,7 +204,7 @@ class Recommender:
 
 		def default_if_none(r, t):
 			if r is None or t is None:
-				value = (DEFAULT_RATING, util.NOW.timestamp())
+				value = (DEFAULT_RATING, now)
 			else:
 				value = (r, t)
 			return value
