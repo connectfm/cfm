@@ -6,3 +6,4 @@ sys.path.insert(0, path)
 
 import recommend
 import model
+import util

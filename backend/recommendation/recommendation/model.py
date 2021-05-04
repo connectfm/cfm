@@ -270,10 +270,10 @@ class RecommendDB:
 
 		def wrap(val, test) -> np.ndarray:
 			if isinstance(test, str):
-				wrapped = np.array([val])
+				wrapped = (val,)
 			else:
-				wrapped = val
-			return wrapped
+				wrapped = tuple(val)
+			return np.array(wrapped)
 
 		names, songs = wrap(names, names), wrap(songs, songs[0])
 		keys = np.array([self.to_cluster_key(n) for n in names])

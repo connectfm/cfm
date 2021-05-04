@@ -8,9 +8,7 @@ import random
 import uuid
 from typing import Any, List, NoReturn, Tuple, Union
 
-import recommend
-import util
-from context import model
+from context import model, recommend, util
 
 
 def preprocess_tracks_dataset(dir_path: str) -> NoReturn:
@@ -135,8 +133,8 @@ class RecommendData:
 def main():
 	data = RecommendData()
 	keys, features = load_features('data/')
-	n_songs = 5000
-	n_users = 1000
+	n_songs = 50_000
+	n_users = 10_000
 	keys, features = keys[:n_songs], features[:n_songs]
 	users = data.get_users(n_users, d=len(features[0]), small_world=True)
 	clusters = data.get_clusters(*keys, n=5)
@@ -145,7 +143,7 @@ def main():
 		store_users(db, *users)
 		store_clusters(db, *clusters)
 		rec = recommend.Recommender(
-			db, n_songs=100, n_neighbors=10, cache=False)
+			db, n_songs=1_000, n_neighbors=100, cache=False)
 		for i in range(1):
 			u = random.randint(0, n_users - 1)
 			rec.recommend(users[u].name)
