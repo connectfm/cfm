@@ -21,17 +21,17 @@ def handler(event, context):
     logger.debug(f"Got event: {event}")
 
     # Update redis values based on changes
-    # try:
-    result = redis.update_redis(event)
-    return result
+    try:
+        result = redis.update_redis(event)
+        return result
 
-    # except:
-    #     e = sys.exc_info()[0]
-    #     logger.warning(f"Ran into an error when attempting to update Redis: {e}")
-    #     return {
-    #         'statusCode': 400,
-    #         'body': json.dumps("Something went wrong!")
-    #     }
+    except:
+        e = sys.exc_info()[0]
+        logger.warning(f"Ran into an error when attempting to update Redis: {e}")
+        return {
+            'statusCode': 400,
+            'body': json.dumps("Something went wrong!")
+        }
 
 
 # For testing -- remove later on.

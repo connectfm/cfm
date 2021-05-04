@@ -131,7 +131,7 @@ def val_loads(attr):
 
 # Extracts an (ordered) array of features for song/taste items and returns it
 def build_feature_array(img: dict):
-    features = np.zeros(len(FEATURE_LOOKUP))
+    features = [] * len(FEATURE_LOOKUP)
     for attr in img:
         if attr != "Id":
             value = val_loads(img[attr])
@@ -169,7 +169,7 @@ def prepare_for_redis(record: dict, table) -> dict:
 
     # If the table type is Song, then we can just handle it right away and return our feature vector
     if table == "Song":
-        return {f"song:{id}" : mp.packb(build_feature_array(img))}
+        return {f"song:{id}" : build_feature_array(img)}
 
     # Grab the id now since we skip it in the image itself
     id = int(val_loads(img["Id"]))
@@ -194,7 +194,7 @@ def prepare_for_redis(record: dict, table) -> dict:
                 items[f"time:{id}:<SONG-ID?>"] = value
 
             elif attr == "Taste":
-                items[f"taste:{id}"] = mp.packb(build_feature_array(img)) # TODO: This will not work, but can use a similar setup for extracting features
+                items[f"taste:{id}"] = build_feature_array(img) # TODO: This will not work, but can use a similar setup for extracting features
 
     return items
 
