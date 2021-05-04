@@ -16,7 +16,7 @@ from typing import (
 
 import util
 
-logger = util.get_logger(__name__, level='DEBUG')
+logger = util.get_logger(__name__)
 # Type aliases
 _Strings = Union[str, Iterable[str]]
 _Values = Union[Any, Iterable[Any]]

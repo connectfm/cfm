@@ -13,7 +13,7 @@ import util
 
 DEFAULT_RATING = 2
 
-logger = util.get_logger(__name__, 'DEBUG')
+logger = util.get_logger(__name__,)
 _Metric = Callable[[Any, Any], numbers.Real]
 
 
