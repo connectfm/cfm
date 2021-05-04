@@ -1,23 +1,24 @@
+import jsonpickle
 import logging
 import os
 from typing import Any, Dict
-
-import jsonpickle
 
 import model
 import recommend
 import util
 
+# Environment variables
+MIN_SIMILAR = int(os.getenv('MIN_SIMILAR', default=0.2))
+MAX_SCORES = int(os.getenv('MAX_SCORES', default=10))
+MAX_RATINGS = int(os.getenv('MAX_RATINGS', default=10))
+CACHE = bool(os.getenv('CACHE', default=False))
+N_SONGS = int(os.getenv('N_SONGS', default=1_000))
+N_NEIGHBORS = int(os.getenv('N_NEIGHBORS', default=100))
+METRIC = os.getenv('METRIC', default='euclidean').lower()
 SEED = os.getenv('SEED')
-LOG_LEVEL = os.getenv('LOG_LEVEL', default=logging.INFO)
-MIN_SIMILAR = None
-MAX_SCORES = None
-MAX_RATINGS = None
-CACHE = None
-N_SONGS = None
-N_NEIGHBORS = None
-METRIC = 'euclidean'
-
+if (LOG_LEVEL := os.getenv('LOG_LEVEL', default=logging.INFO)) is not None:
+	LOG_LEVEL = LOG_LEVEL.capitalize()
+# Globals
 logger = util.get_logger(__name__, LOG_LEVEL)
 
 
