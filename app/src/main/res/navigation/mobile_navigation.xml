@@ -28,4 +28,11 @@
     android:label="Playback"
     android:name="ui.playback.SongFragment"
     tools:layout="@layout/fragment_song" />
+
+  <fragment
+      android:id="@+id/navigation_settings"
+      android:label="Settings"
+      android:name="ui.settings.SettingsFragment"
+      tools:layout="@layout/fragment_settings" />
+
 </navigation>

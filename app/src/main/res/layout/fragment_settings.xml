@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="148dp"
+        android:layout_marginTop="56dp"
+        android:text="user settings"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <EditText
+        android:id="@+id/set_bias_field"
+        android:layout_width="155dp"
+        android:layout_height="37dp"
+        android:layout_marginTop="40dp"
+        android:ems="10"
+        android:inputType="number"
+        app:layout_constraintStart_toEndOf="@+id/set_bias_text"
+        app:layout_constraintTop_toBottomOf="@+id/textView" />
+
+    <TextView
+        android:id="@+id/set_bias_text"
+        android:layout_width="69dp"
+        android:layout_height="41dp"
+        android:layout_marginStart="40dp"
+        android:layout_marginTop="4dp"
+        android:text="set bias (0-100)"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/set_bias_field" />
+
+    <TextView
+        android:id="@+id/set_radius_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="set radius (0-100 miles)"
+        app:layout_constraintStart_toStartOf="@+id/set_bias_text"
+        app:layout_constraintTop_toTopOf="@+id/set_radius_field" />
+
+    <EditText
+        android:id="@+id/set_radius_field"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="52dp"
+        android:ems="10"
+        android:inputType="number"
+        app:layout_constraintStart_toEndOf="@+id/set_radius_text"
+        app:layout_constraintTop_toBottomOf="@+id/set_bias_field" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
