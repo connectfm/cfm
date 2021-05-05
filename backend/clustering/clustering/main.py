@@ -4,97 +4,69 @@ import tensorflow_probability as tfp
 import time
 from tensorflow_probability import distributions as tfd
 
+# Shorter class names
+Mixture = tfd.MixtureSameFamily
+Cat = tfd.Categorical
+NormalDiag = tfd.MultivariateNormalDiag
+Dir = tfd.Dirichlet
+Ind = tfd.Independent
+Normal = tfd.Normal
+InvGamma = tfd.InverseGamma
 
-def session_options(enable_gpu_ram_resizing=True):
-	"""Convenience function which sets common `tf.Session` options."""
-	config = tf.ConfigProto()
-	config.log_device_placement = True
-	if enable_gpu_ram_resizing:
-		config.gpu_options.allow_growth = True
-	return config
+# Learning rates and decay
+starter_learning_rate = 1e-6
+end_learning_rate = 1e-10
+decay_steps = 1e4
+# Number of training steps
+training_steps = 500
+# Mini-batch size
+batch_size = 20
+# Sample size for parameter posteriors
+sample_size = 100
+# Upperbound on K
+max_cluster_num = 60
+dtype = np.float64
+buffer_size = 500
 
-
-def reset_sess(config=None):
-	"""Convenience function to create the TF graph and session, or reset."""
-	if config is None:
-		config = session_options()
-	tf.reset_default_graph()
-	global sess
-	try:
-		sess.close()
-	except:
-		pass
-	sess = tf.InteractiveSession(config=config)
-
+# Placeholder for mini-batch
 
 def cluster(data):
 	num_samples, dims = np.shape(data)
-	reset_sess()
-	set_session(sess)
-	# Upperbound on K
-	max_cluster_num = 60
-	dtype = np.float64
+	one = np.ones([1], dtype=dtype)
+	ones_vector = np.ones([max_cluster_num], dtype=dtype)
+	ones_matrix = np.ones([max_cluster_num, dims], dtype=dtype)
+	zeros_matrix = np.zeros([max_cluster_num, dims], dtype=dtype)
 	# Define trainable variables.
 	mix_probs = tf.nn.softmax(
 		tf.Variable(
-			name='mix_probs',
-			initial_value=np.ones([max_cluster_num], dtype) / max_cluster_num))
+			name='mix_probs', initial_value=ones_vector / max_cluster_num))
 	loc = tf.Variable(
 		name='loc',
 		initial_value=np.random.uniform(
-			low=0,  #
-			high=1,  # set around maximum value of sample value
-			size=[max_cluster_num, dims]))
-	precision = tf.nn.softplus(tf.Variable(
-		name='precision',
-		initial_value=
-		np.ones([max_cluster_num, dims], dtype=dtype)))
-	alpha = tf.nn.softplus(tf.Variable(
-		name='alpha',
-		initial_value=
-		np.ones([1], dtype=dtype)))
+			low=0, high=1, size=[max_cluster_num, dims]))
+	precision = tf.Variable(name='precision', initial_value=ones_matrix)
+	precision = tf.nn.softplus(precision)
+	alpha = tf.nn.softplus(tf.Variable(name='alpha', initial_value=one))
 	training_vals = [mix_probs, alpha, loc, precision]
 	# Prior distributions of the training variables
 	# Use symmetric Dirichlet prior as finite approximation of Dirichlet
 	# process.
-	concentration = np.ones(max_cluster_num, dtype) * alpha / max_cluster_num
-	rv_sym_dir_proc = tfd.Dirichlet(
-		concentration=concentration, name='rv_sdp')
-	rv_loc = tfd.Independent(
-		tfd.Normal(
-			loc=tf.zeros([max_cluster_num, dims], dtype=dtype),
-			scale=tf.ones([max_cluster_num, dims], dtype=dtype)),
+	concentration = ones_vector * alpha / max_cluster_num
+	rv_sym_dir_proc = Dir(concentration=concentration, name='rv_sdp')
+	rv_loc = Ind(
+		Normal(loc=zeros_matrix, scale=ones_matrix),
 		reinterpreted_batch_ndims=1,
 		name='rv_loc')
-	rv_precision = tfd.Independent(
-		tfd.InverseGamma(
-			concentration=np.ones([max_cluster_num, dims], dtype),
-			rate=np.ones([max_cluster_num, dims], dtype)),
+	rv_precision = Ind(
+		InvGamma(concentration=ones_matrix, rate=ones_matrix),
 		reinterpreted_batch_ndims=1,
 		name='rv_precision')
-	rv_alpha = tfd.InverseGamma(
-		concentration=np.ones([1], dtype=dtype),
-		rate=np.ones([1]),
-		name='rv_alpha')
+	rv_alpha = InvGamma(concentration=one, rate=one, name='rv_alpha')
 	# Define mixture model
-	rv_data = tfd.MixtureSameFamily(
-		mixture_distribution=tfd.Categorical(probs=mix_probs),
-		components_distribution=tfd.MultivariateNormalDiag(
-			loc=loc, scale_diag=precision))
-	# Learning rates and decay
-	starter_learning_rate = 1e-6
-	end_learning_rate = 1e-10
-	decay_steps = 1e4
-	# Number of training steps
-	training_steps = 500
-	# Mini-batch size
-	batch_size = 20
-	# Sample size for parameter posteriors
-	sample_size = 100
-	# Placeholder for mini-batch
+	rv_data = Mixture(
+		mixture_distribution=Cat(probs=mix_probs),
+		components_distribution=NormalDiag(loc=loc, scale_diag=precision))
 	data_ten = tf.placeholder(dtype, shape=[batch_size, dims], name='data_ten')
-	print(data_ten)
-	print(dtype)
 	# Define joint log probabilities
 	# Notice that each prior probability should be divided by num_samples and
 	# likelihood is divided by batch_size for pSGLD optimization.
@@ -112,7 +84,7 @@ def cluster(data):
 	joint_log_prob = tf.reduce_sum(tf.concat(log_prob_parts, axis=-1), axis=-1)
 	# Make mini-batch generator
 	dx = tf.data.Dataset.from_tensor_slices(data)
-	dx = dx.shuffle(500).repeat().batch(batch_size)
+	dx = dx.shuffle(buffer_size).repeat().batch(batch_size)
 	iterator = tf.data.make_one_shot_iterator(dx)
 	next_batch = iterator.get_next()
 	# Define learning rate scheduling
@@ -151,11 +123,10 @@ def cluster(data):
 	posterior_probmix = tf.placeholder(
 		dtype, [None, max_cluster_num], name='posterior_probmix')
 	# Posterior of z (un-normalized)
-	posterior = tfd.MultivariateNormalDiag(
-		loc=posterior_loc, scale_diag=posterior_precision)
+	posterior = NormalDiag(loc=posterior_loc, scale_diag=posterior_precision)
 	posterior = posterior.log_prob(
 		tf.expand_dims(tf.expand_dims(data, axis=1), axis=1))
-	posterior += tf.log(posterior_probmix[tf.newaxis, ...])
+	posterior += tf.math.log(posterior_probmix[tf.newaxis, ...])
 	# normalize posterior of z over the latent states
 	log_sum_exp = tf.reduce_logsumexp(posterior, axis=-1)[..., tf.newaxis]
 	posterior = posterior - log_sum_exp
