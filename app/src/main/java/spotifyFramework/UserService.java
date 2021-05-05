@@ -49,5 +49,4 @@ public class UserService {
 		queue.add(jsonObjectRequest);
 	}
 
-
 }

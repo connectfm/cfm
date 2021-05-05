@@ -122,11 +122,16 @@ public class SongFragment extends Fragment {
     private void initializeSongInfo(VolleyCallBack callBack) {
         songService = new SongService(getActivity());
 
+        /*
+        Replace this stuff with the Recommender request
+         */
         songService.getRecentlyPlayed(() -> {
             songQueue = removeDupes(songService.getPlaylist());
             
             for(Song s: songQueue) {
                 System.out.println(s.getName());
+                songService.getFeatures(s);
+
             }
             callBack.onSuccess();
         });
@@ -234,6 +239,7 @@ public class SongFragment extends Fragment {
                     System.out.println(songQueue.get(songPos).getName());
                     setSongLayout(getView(), songQueue.get(songPos));
                     initializeSeekBar(songQueue.get(songPos));
+                    songService.getFeatures(songQueue.get(songPos));
                     timeAtSeek = 0;
                 }
                 else {
@@ -282,4 +288,5 @@ public class SongFragment extends Fragment {
         }
         return res;
     }
+
 }

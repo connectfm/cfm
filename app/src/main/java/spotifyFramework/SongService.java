@@ -212,6 +212,39 @@ public class SongService {
 		};
 		queue.add(jsonObjectRequest);
 	}
+	
+	public void getFeatures(Song current) {
+		String endpoint = "https://api.spotify.com/v1/audio-features/" + song.getId();
+		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+				Request.Method.GET,
+				endpoint,
+				null,
+				new Response.Listener<JSONObject>() {
+					@Override
+					public void onResponse(JSONObject response) {
+						try {
+							current.setFeatures(response);
+						} catch (JSONException e) {
+							e.printStackTrace();
+						}
+					}
+				}, new Response.ErrorListener() {
+			@Override
+			public void onErrorResponse(VolleyError error) {
+
+			}
+		}) {
+			@Override
+			public Map<String, String> getHeaders() throws AuthFailureError {
+				Map<String, String> headers = new HashMap<String, String>();
+				String token = preferences.getString("TOKEN", "");
+				String auth = "Bearer " + token;
+				headers.put("Authorization", auth);
+				return headers;
+			}
+		};
+		queue.add(jsonObjectRequest);
+	}
 
 
 

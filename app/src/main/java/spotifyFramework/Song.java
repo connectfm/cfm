@@ -1,6 +1,11 @@
 package spotifyFramework;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,6 +19,17 @@ public class Song {
 	private List<String> albumImages = new ArrayList<String>();
 	private String artist_id;
 	private String albumName;
+
+	//Song Features Fields
+	private float danceability;
+	private float energy;
+	private float loudness;
+	private float speechiness;
+	private float acousticness;
+	private float instrumentalness;
+	private float liveness;
+	private float valence;
+	private float tempo;
 
 	public Song(String id, String name) {
 		this.name = name;
@@ -34,6 +50,55 @@ public class Song {
 
 	public List<String> getArtists() {
 		return artistsList;
+	}
+
+	public float getAcousticness() {
+		return acousticness;
+	}
+
+	public float getDanceability() {
+		return danceability;
+	}
+
+	public float getEnergy() {
+		return energy;
+	}
+
+	public float getInstrumentalness() {
+		return instrumentalness;
+	}
+
+	public float getLiveness() {
+		return liveness;
+	}
+
+	public float getLoudness() {
+		return loudness;
+	}
+
+	public float getSpeechiness() {
+		return speechiness;
+	}
+
+	public float getTempo() {
+		return tempo;
+	}
+
+	public float getValence() {
+		return valence;
+	}
+
+	public void setFeatures(JSONObject features) throws JSONException {
+
+		acousticness = features.getLong("acousticness");
+		danceability = features.getLong("danceability");
+		energy = features.getLong("energy");
+		loudness = features.getLong("loudness");
+		speechiness = features.getLong("speechiness");
+		acousticness = features.getLong("instrumentalness");
+		liveness = features.getLong("liveness");
+		valence = features.getLong("valence");
+		tempo = features.getLong("tempo");
 	}
 
 	public void setAlbumName(String name) {
@@ -90,4 +155,5 @@ public class Song {
 	public Long getDuration() {
 		return duration_ms;
 	}
+
 }
