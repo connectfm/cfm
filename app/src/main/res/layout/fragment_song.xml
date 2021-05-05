@@ -5,6 +5,7 @@
   android:id="@+id/frameLayout"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
+  android:background="@drawable/gradient"
   tools:context="ui.playback.SongFragment" >
 
 
@@ -42,10 +43,10 @@
       android:id="@+id/dislike"
       android:layout_width="78dp"
       android:layout_height="37dp"
-      android:layout_marginTop="16dp"
+      android:layout_marginLeft="60dp"
       android:text="Dislike"
-      app:layout_constraintRight_toRightOf="@id/like"
-      app:layout_constraintTop_toBottomOf="@id/like"
+      app:layout_constraintLeft_toRightOf="@id/like"
+      app:layout_constraintTop_toTopOf="@id/like"
       />
 
   <Button
@@ -53,7 +54,8 @@
       android:layout_width="78dp"
       android:layout_height="37dp"
       android:layout_marginTop="17dp"
-      android:layout_marginRight="20dp"
+      android:layout_marginRight="50dp"
+      android:layout_marginLeft="50dp"
       android:text="Like"
       app:layout_constraintTop_toBottomOf="@id/prev"
       app:layout_constraintLeft_toLeftOf="@id/prev"
