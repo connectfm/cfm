@@ -24,12 +24,12 @@ import static com.amplifyframework.core.model.query.predicate.QueryField.field;
   @AuthRule(allow = AuthStrategy.PUBLIC, operations = { ModelOperation.CREATE, ModelOperation.UPDATE, ModelOperation.DELETE, ModelOperation.READ })
 })
 public final class User implements Model {
-  public static final QueryField ID = field("User", "id");
-  public static final QueryField EMAIL = field("User", "email");
-  public static final QueryField TASTE = field("User", "taste");
-  public static final QueryField BIAS = field("User", "bias");
-  public static final QueryField LOCATION = field("User", "location");
-  public static final QueryField HISTORY = field("User", "history");
+  public static final QueryField ID = field("id");
+  public static final QueryField EMAIL = field("email");
+  public static final QueryField TASTE = field("taste");
+  public static final QueryField BIAS = field("bias");
+  public static final QueryField LOCATION = field("location");
+  public static final QueryField HISTORY = field("history");
   private final @ModelField(targetType="ID", isRequired = true) String id;
   private final @ModelField(targetType="String", isRequired = true) String email;
   private final @ModelField(targetType="SongFeatures") SongFeatures taste;
