@@ -55,4 +55,3 @@ type User @model @auth(rules: [{allow: public}]) {
   location: Location
   history: History
 }
- 

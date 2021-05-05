@@ -58,7 +58,6 @@ captures/
 #*.keystore
 
 # External native build folder generated in Android Studio 2.2 and later
-.externalNativeBuild
 .cxx/
 
 # Google Services (e.g. APIs or Firebase)
@@ -101,6 +100,10 @@ app/build/intermediates
 *.bin
 *.lock
 
+# Python venv
+venv/
+__pycache__/
+
 #amplify
 amplify/\#current-cloud-backend
 amplify/.config/local-*
@@ -115,12 +118,9 @@ node_modules/
 aws-exports.js
 awsconfiguration.json
 amplifyconfiguration.json
+amplifyconfiguration.dart
 amplify-build-config.json
 amplify-gradle-config.json
 amplifytools.xcconfig
 .secret-*
-app/build/tmp/compileDebugJavaWithJavac/source-classes-mapping.txt
-
-# Python venv
-venv/
-__pycache__/
+!project-config.json
