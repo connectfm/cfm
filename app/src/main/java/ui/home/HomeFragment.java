@@ -37,6 +37,7 @@ public class HomeFragment extends Fragment {
 		songService = new SongService(getActivity());
 		songService.getRecentlyPlayed(() -> {
 			ArrayList<Song> recents = songService.getPlaylist();
+			recents = removeDupes(recents);
 			adapter = new SongsAdapter(getActivity(), recents);
 			adapter.notifyDataSetChanged();
 			recyclerView = (RecyclerView) getActivity().findViewById(R.id.listening_history);
@@ -55,4 +56,18 @@ public class HomeFragment extends Fragment {
 
 		return root;
 	}
+
+	private ArrayList<Song> removeDupes(ArrayList<Song> playlist) {
+		ArrayList<String> idList = new ArrayList<>();
+		ArrayList<Song> res = new ArrayList<>();
+
+		for(Song s: playlist) {
+			if(!idList.contains(s.getUri())){
+				res.add(s);
+				idList.add(s.getUri());
+			}
+		}
+		return res;
+	}
+
 }

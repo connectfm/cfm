@@ -148,7 +148,7 @@ public class SongService {
 						} catch (JSONException e) {
 							e.printStackTrace();
 						} finally {
-							removeDupes(playlist);
+
 							callBack.onSuccess();
 						}
 					}
@@ -213,16 +213,6 @@ public class SongService {
 		queue.add(jsonObjectRequest);
 	}
 
-	public void removeDupes(ArrayList<Song> playlist) {
-		ArrayList<String> idList = new ArrayList<>();
 
-		for (int i = 0; i < playlist.size(); i++) {
-			if (idList.contains(playlist.get(i).getId())) {
-				playlist.remove(playlist.get(i));
-			} else {
-				idList.add(playlist.get(i).getId());
-			}
-		}
-	}
 
 }

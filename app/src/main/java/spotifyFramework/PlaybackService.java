@@ -14,6 +14,7 @@ import com.android.volley.toolbox.Volley;
 import com.google.gson.Gson;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import org.json.JSONArray;
@@ -70,7 +71,7 @@ public class PlaybackService {
 				}, new Response.ErrorListener() {
 			@Override
 			public void onErrorResponse(VolleyError error) {
-
+				System.out.println(error.toString());
 			}
 		}) {
 			@Override
@@ -105,6 +106,9 @@ public class PlaybackService {
 								System.out.println(Build.MODEL.equals(device.getString("name")));
 								if (device.getString("name").equals(android.os.Build.MODEL)) {
 									deviceId = device.getString("id");
+									SharedPreferences.Editor editor = preferences.edit();
+									editor.putString("device_id", deviceId);
+									editor.apply();
 								}
 							} catch (JSONException e) {
 								e.printStackTrace();
@@ -133,7 +137,13 @@ public class PlaybackService {
 	public void addToQueue(Song song) {
 		String endpoint = "https://api.spotify.com/v1/me/player/queue";
 		String uri = "uri=" + song.getUri();
-		String device = "device_id=" + deviceId;
+		String device;
+		if(deviceId == null) {
+			device = "device_id=" + preferences.getString("device_id", "");
+		}
+		else {
+			device = "device_id=" + getDeviceId();
+		}
 
 		endpoint = endpoint + "?" + uri + "&" + device;
 
@@ -166,15 +176,28 @@ public class PlaybackService {
 
 	public void play(Song song, int position){
 		String endpoint = "https://api.spotify.com/v1/me/player/play";
-		String[] songUri = new String[]{song.getUri()};
 		String pos = String.valueOf(position);
+		JSONArray uris = new JSONArray();
+		JSONObject parameters = new JSONObject();
 
-		Map<String, String> params = new HashMap<>();
-		params.put("uris", songUri.toString());
-		params.put("position_ms", pos);
+		String device;
+		if(deviceId == null) {
+			device = "device_id=" + preferences.getString("device_id", "");
+		}
+		else {
+			device = "device_id=" + getDeviceId();
+		}
+		endpoint = endpoint + "?" + device;
+		try {
+			uris.put(song.getUri());
+			parameters.put("uris", uris);
+			parameters.put("position_ms", position);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 
-		JSONObject parameters = new JSONObject(params);
 
+		System.out.println(parameters.toString());
 		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
 				Request.Method.PUT,
 				endpoint,

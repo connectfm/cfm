@@ -64,6 +64,7 @@ public class SongFragment extends Fragment {
     private int songPos = 0;
     private Runnable runnable;
     private Handler handler;
+    private int timeAtSeek;
 
 
 
@@ -80,9 +81,9 @@ public class SongFragment extends Fragment {
         // Inflate the layout for this fragment
         View root = inflater.inflate(R.layout.fragment_song, container, false);
         initializeSongInfo(() -> {
-            setSongLayout(root,songQueue.get(0));
+            setSongLayout(root,songQueue.get(songPos));
             initializeObjects(root);
-            initializeSeekBar(songQueue.get(0));
+            initializeSeekBar(songQueue.get(songPos));
             firstPlay();
         });
         return root;
@@ -122,14 +123,18 @@ public class SongFragment extends Fragment {
         songService = new SongService(getActivity());
 
         songService.getRecentlyPlayed(() -> {
-            songQueue = songService.getPlaylist();
+            songQueue = removeDupes(songService.getPlaylist());
+            
+            for(Song s: songQueue) {
+                System.out.println(s.getName());
+            }
             callBack.onSuccess();
         });
     }
 
     private void firstPlay() {
         playbackService.findDevice(() -> {
-            playbackService.play(songQueue);
+            playbackService.play(songQueue.get(0),0);
         });
 
     }
@@ -150,14 +155,20 @@ public class SongFragment extends Fragment {
 
     private void skipSong() {
         playbackService.findDevice(() -> {
-            playbackService.next();
+            playbackService.play(songQueue.get(songPos),0);
+
         });
     }
 
     private void playLast() {
+        if(songPos >= 1){
+            songPos--;
+        }
+        seekBar.setMax(songQueue.get(songPos).getDuration().intValue());
         playbackService.findDevice(() -> {
-            playbackService.prev();
+            playbackService.play(songQueue.get(songPos), 0);
         });
+
     }
 
     private void initializeObjects(View v) {
@@ -188,17 +199,23 @@ public class SongFragment extends Fragment {
         nextButton = v.findViewById(R.id.next);
         nextButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
+            public void onClick(View view) {
                 skipSong();
                 songPos ++;
+                seekBar.setMax(songQueue.get(songPos).getDuration().intValue());
                 setSongLayout(v, songQueue.get(songPos));
             }
         });
         prevButton = v.findViewById(R.id.prev);
         prevButton.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) {
-                playLast();
+            public void onClick(View view) {
+                if(seekBar.getProgress() >= seekBar.getMax()/2) {
+                    playbackService.play(songQueue.get(songPos),0);
+                }
+                else {
+                    playLast();
+                }
             }
         });
 
@@ -211,8 +228,16 @@ public class SongFragment extends Fragment {
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                if(fromUser) {
-                    playbackService.play(songQueue.get(songPos),progress);
+                System.out.println(progress);
+                if(!fromUser && timeAtSeek > progress){
+                    songPos++;
+                    System.out.println(songQueue.get(songPos).getName());
+                    setSongLayout(getView(), songQueue.get(songPos));
+                    initializeSeekBar(songQueue.get(songPos));
+                    timeAtSeek = 0;
+                }
+                else {
+                    timeAtSeek = progress;
                 }
             }
 
@@ -223,20 +248,38 @@ public class SongFragment extends Fragment {
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-
+                timeAtSeek = seekBar.getProgress();
+                playbackService.findDevice(() -> {
+                    playbackService.play(songQueue.get(songPos),seekBar.getProgress());
+                    if(isPaused)
+                        playbackService.pause();
+                });
             }
         });
         runnable = new Runnable() {
            @Override
            public void run() {
+
                playbackService.currentlyPlaying(() -> {
                    int currentPos = playbackService.getProgress();
                    seekBar.setProgress(currentPos);
                });
                handler.postDelayed(runnable,1000);
-
            }
-       };
+        };
        handler.postDelayed(runnable,1000);
+    }
+
+    private ArrayList<Song> removeDupes(ArrayList<Song> playlist) {
+        ArrayList<String> idList = new ArrayList<>();
+        ArrayList<Song> res = new ArrayList<>();
+
+        for(Song s: playlist) {
+            if(!idList.contains(s.getUri())){
+                res.add(s);
+                idList.add(s.getUri());
+            }
+        }
+        return res;
     }
 }

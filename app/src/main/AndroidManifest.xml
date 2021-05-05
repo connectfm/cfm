@@ -35,6 +35,11 @@
     <activity
       android:name="ui.MainActivity"
       android:theme="@style/Theme.Cfm.NoActionBar" />
+    <receiver android:name="ui.MainActivity">
+      <intent-filter>
+        <action android:name="com.spotify.music.active" />
+      </intent-filter>
+    </receiver>
 
     <activity
       android:exported="true"
@@ -56,11 +61,6 @@
       android:name="com.spotify.sdk.android.authentication.LoginActivity"
       android:theme="@android:style/Theme.Translucent.NoTitleBar"
       tools:ignore="MissingClass" />
-    <receiver android:name="ui.LoginActivity">
-      <intent-filter>
-        <action android:name="com.spotify.music.active" />
-      </intent-filter>
-    </receiver>
   </application>
   <queries>
     <package android:name="com.spotify.music" />
