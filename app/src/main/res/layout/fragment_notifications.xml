@@ -4,7 +4,7 @@
   xmlns:tools="http://schemas.android.com/tools"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
-  tools:context="ui.notifications.PlaylistFragment">
+  tools:context="com.ui.notifications.PlaylistFragment">
 
   <Button
     android:id="@+id/new_playlist"

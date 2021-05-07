@@ -1,45 +1,35 @@
-package ui.playback;
+package com.ui.playback;
 
-import android.content.SharedPreferences;
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.fragment.app.Fragment;
 
 import android.os.CountDownTimer;
 import android.os.Handler;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.ImageView;
-import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.annotation.RequiresApi;
-import androidx.fragment.app.Fragment;
+
+import com.datastoreInteractions.AmplifyService;
 import com.example.cfm.R;
-import com.google.gson.Gson;
 import com.squareup.picasso.Picasso;
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import org.json.JSONArray;
 import org.json.JSONException;
-import org.json.JSONObject;
-import spotifyFramework.PlaybackService;
-import spotifyFramework.Song;
-import spotifyFramework.SongService;
-import spotifyFramework.VolleyCallBack;
+
+import com.spotifyFramework.PlaybackService;
+import com.spotifyFramework.Song;
+import com.spotifyFramework.SongService;
+import com.spotifyFramework.VolleyCallBack;
 
 public class SongFragment extends Fragment {
 
@@ -53,6 +43,8 @@ public class SongFragment extends Fragment {
     public Button playButton;
     public Button nextButton;
     public Button prevButton;
+    public ImageButton likeButton;
+    public ImageButton dislikeButton;
     public SeekBar seekBar;
     public CountDownTimer count;
 
@@ -60,11 +52,11 @@ public class SongFragment extends Fragment {
     //Playback fields
     public ArrayList<Song> songQueue = new ArrayList<Song>();
     private boolean isPaused = false;
-    private Long songLeft;
     private int songPos = 0;
     private Runnable runnable;
     private Handler handler;
     private int timeAtSeek;
+    private Song currentSong;
 
 
 
@@ -72,6 +64,7 @@ public class SongFragment extends Fragment {
     //Storage for interactions with Spotify/Amplify
     private PlaybackService playbackService;
     private SongService songService;
+    private AmplifyService amplifyService;
 
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -95,17 +88,8 @@ public class SongFragment extends Fragment {
         super.onActivityCreated(savedInstanceState);
     }
 
-    private void populateSongInfo(Song s, JSONArray artists, JSONArray albumImages) throws JSONException {
-        for(int i = 0; i < artists.length(); i++) {
-            s.setArtist(artists.getString(i));
-        }
-
-        for(int j = 0; j < albumImages.length(); j++) {
-            s.setImage(albumImages.getString(j));
-        }
-    }
-
     private void setSongLayout(View view, Song song) {
+        currentSong = song;
         artists = view.findViewById(R.id.song_artist);
         albumName = view.findViewById(R.id.song_album);
         songName = view.findViewById(R.id.song_title);
@@ -115,6 +99,7 @@ public class SongFragment extends Fragment {
         artists.setText(song.artistsToString(Integer.MAX_VALUE));
         albumName.setText(song.getAlbum());
         songName.setText(song.getName());
+
 
     }
 
@@ -184,7 +169,6 @@ public class SongFragment extends Fragment {
 
         seekBar.setMax(duration.intValue());
 
-
         playButton = v.findViewById(R.id.play);
         playButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -223,11 +207,36 @@ public class SongFragment extends Fragment {
                 }
             }
         });
-
+        likeButton = v.findViewById(R.id.like);
+        likeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(currentSong.getStatus() == 3) {
+                    currentSong.setStatus(2);
+                }
+                else
+                    currentSong.setStatus(3);
+            }
+        });
+        dislikeButton = v.findViewById(R.id.dislike);
+        dislikeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if(currentSong.getStatus() == 1) {
+                    currentSong.setStatus(2);
+                }
+                else {
+                    currentSong.setStatus(1);
+                }
+            }
+        });
         playbackService = new PlaybackService(getActivity());
+        amplifyService = new AmplifyService(getActivity());
     }
 
-    protected void initializeSeekBar(Song currentSong) {
+
+
+    private void initializeSeekBar(Song currentSong) {
         seekBar.setMax((currentSong.getDuration().intValue()));
 
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {

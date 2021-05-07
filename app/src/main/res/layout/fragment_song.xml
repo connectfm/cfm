@@ -6,7 +6,7 @@
   android:layout_width="match_parent"
   android:layout_height="match_parent"
   android:background="@drawable/gradient"
-  tools:context="ui.playback.SongFragment" >
+  tools:context="com.ui.playback.SongFragment" >
 
 
   <Button
@@ -39,24 +39,27 @@
     app:layout_constraintRight_toLeftOf="@id/play"
     app:layout_constraintTop_toTopOf="@id/play" />
 
-  <Button
+  <ImageButton
       android:id="@+id/dislike"
-      android:layout_width="78dp"
-      android:layout_height="37dp"
+      android:layout_width="70dp"
+      android:layout_height="70dp"
       android:layout_marginLeft="60dp"
-      android:text="Dislike"
+      android:background="@drawable/thumbs_up"
+      android:rotation="180"
+      app:backgroundTint = "@color/black"
       app:layout_constraintLeft_toRightOf="@id/like"
       app:layout_constraintTop_toTopOf="@id/like"
       />
 
-  <Button
+  <ImageButton
       android:id="@+id/like"
-      android:layout_width="78dp"
-      android:layout_height="37dp"
+      android:layout_width="70dp"
+      android:layout_height="70dp"
       android:layout_marginTop="17dp"
       android:layout_marginRight="50dp"
       android:layout_marginLeft="50dp"
-      android:text="Like"
+      android:background="@drawable/thumbs_up"
+      app:backgroundTint="@color/black"
       app:layout_constraintTop_toBottomOf="@id/prev"
       app:layout_constraintLeft_toLeftOf="@id/prev"
       />

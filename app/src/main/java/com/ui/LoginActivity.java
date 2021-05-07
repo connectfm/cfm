@@ -1,4 +1,4 @@
-package ui;
+package com.ui;
 
 import android.Manifest;
 import android.content.Intent;
@@ -16,8 +16,8 @@ import com.spotify.sdk.android.auth.AuthorizationRequest;
 import com.spotify.sdk.android.auth.AuthorizationResponse;
 import org.jetbrains.annotations.NotNull;
 import pub.devrel.easypermissions.EasyPermissions;
-import spotifyFramework.User;
-import spotifyFramework.UserService;
+import com.spotifyFramework.User;
+import com.spotifyFramework.UserService;
 
 public class LoginActivity extends AppCompatActivity {
 

@@ -6,7 +6,7 @@
   android:background="@drawable/gradient"
   android:gravity="center|top"
   android:orientation="vertical"
-  tools:context="ui.LoginActivity">
+  tools:context="com.ui.LoginActivity">
 
   <ImageView
       android:layout_width="250dp"

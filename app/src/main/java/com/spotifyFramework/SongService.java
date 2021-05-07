@@ -1,12 +1,9 @@
-package spotifyFramework;
+package com.spotifyFramework;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.os.AsyncTask;
 import android.util.Log;
-import android.widget.ImageView;
+
 import com.android.volley.AuthFailureError;
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -15,7 +12,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.gson.Gson;
-import java.io.InputStream;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -34,16 +31,6 @@ public class SongService {
 		preferences = context.getSharedPreferences("SPOTIFY", 0);
 		queue = Volley.newRequestQueue(context);
 
-	}
-
-	public static ArrayList<Song> createSongs() {
-		ArrayList<Song> songs = new ArrayList<Song>();
-		for (int i = 0; i < 21; i++) {
-			Song song = new Song(String.valueOf(i), "Song " + i);
-			song.setArtist("Artist " + i);
-			songs.add(song);
-		}
-		return songs;
 	}
 
 	public ArrayList<Song> getPlaylist() {
@@ -83,7 +70,7 @@ public class SongService {
 								System.out.println(artists.length());
 								for (int j = 0; j < artists.length(); j++) {
 									JSONObject artist = artists.getJSONObject(j);
-									s.setArtist(artist.getString("name"));
+									s.setArtist(artist.getString("id"),artist.getString("name"));
 								}
 								playlist.add(s);
 							}
@@ -141,7 +128,8 @@ public class SongService {
 								System.out.println(artists.length());
 								for (int j = 0; j < artists.length(); j++) {
 									JSONObject artist = artists.getJSONObject(j);
-									s.setArtist(artist.getString("name"));
+
+									s.setArtist(artist.getString("id"),artist.getString("name"));
 								}
 								playlist.add(s);
 							}

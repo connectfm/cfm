@@ -8,7 +8,7 @@
   android:layout_gravity="center"
   android:background="@drawable/gradient"
   android:gravity="center"
-  tools:context="ui.SplashActivity">
+  tools:context="com.ui.SplashActivity">
 
   <ImageView
     android:id="@+id/splash"

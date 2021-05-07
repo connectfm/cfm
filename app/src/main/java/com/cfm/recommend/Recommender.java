@@ -1,13 +1,11 @@
 package com.cfm.recommend;
 
 import com.android.volley.Request;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import lombok.Builder;
 import lombok.Value;
-import org.json.JSONObject;
-import spotifyFramework.VolleyCallBack;
+
+import com.spotifyFramework.VolleyCallBack;
 
 /**
  * Provides song recommendations in the form of song URIs.
