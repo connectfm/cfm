@@ -200,7 +200,7 @@ class RecommendDB:
 		"""
 		if isinstance(names, str):
 			return self.set(self.to_bias_key(names), values, expire=expire)
-		keys = (self.to_bias_key(n) for n in names)
+		keys = (self.to_radius_key(n) for n in names)
 		return self.set(keys, values, expire=expire)
 
 	def get_radius(self, *names: str) -> _Radii:
@@ -224,8 +224,6 @@ class RecommendDB:
 		Returns:
 			True if all radii were stored successfully, and False otherwise.
 		"""
-		if isinstance(names, str):
-			return self.set(self.to_bias_key(names), values, expire=expire)
 		keys = (self.to_radius_key(n) for n in names)
 		return self.set(keys, values, expire=expire)
 
