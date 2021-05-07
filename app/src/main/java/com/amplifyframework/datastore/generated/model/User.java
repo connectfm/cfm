@@ -1,5 +1,6 @@
 package com.amplifyframework.datastore.generated.model;
 
+import com.amplifyframework.core.model.annotations.BelongsTo;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,13 +30,13 @@ public final class User implements Model {
   public static final QueryField TASTE = field("taste");
   public static final QueryField BIAS = field("bias");
   public static final QueryField LOCATION = field("location");
-  public static final QueryField HISTORY = field("history");
+  public static final QueryField HISTORY = field("userHistoryId");
   private final @ModelField(targetType="ID", isRequired = true) String id;
   private final @ModelField(targetType="String", isRequired = true) String email;
   private final @ModelField(targetType="SongFeatures") SongFeatures taste;
   private final @ModelField(targetType="Float") Double bias;
   private final @ModelField(targetType="Location") Location location;
-  private final @ModelField(targetType="History") History history;
+  private final @ModelField(targetType="History") @BelongsTo(targetName = "userHistoryId", type = History.class) History history;
   public String getId() {
       return id;
   }
