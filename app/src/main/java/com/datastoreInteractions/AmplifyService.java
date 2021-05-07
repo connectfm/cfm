@@ -42,9 +42,11 @@ public class AmplifyService {
         return queriedUser;
     }
 
-    public void createUser(String id, String email) {
+    public void createUser(String email, SongFeatures taste, Double bias, Location location) {
         User user = User.builder()
                 .email(email)
+                .bias(bias)
+                .history(createHistory())
                 .build();
 
         Amplify.DataStore.save(user,
@@ -79,46 +81,54 @@ public class AmplifyService {
         return features;
     }
 
-    public History createHistory(List<Event> events) {
+    public History createHistory() {
         History history = History.builder()
                 .lastUpdated(LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME))
-                .events(events)
                 .build();
         return history;
     }
 
-    public Event createEvent(com.spotifyFramework.Song song, int rating) {
+    public void createEvent(User user, com.spotifyFramework.Song song) {
         Event event = Event.builder()
                 .song(createSong(song))
-                .rating(rating)
+                .rating(song.getStatus())
+                .historyEventsId(user.getHistory().getId())
                 .build();
-        return event;
+        Amplify.DataStore.save(event,
+                res -> Log.d("CFM Amplify Interaction", "Successfully created event"),
+                    error -> Log.e("CFM Amplify Interaction", "Error creating event", error));
     }
 
     public Song createSong(com.spotifyFramework.Song song) {
-        List<Artist> artists = new ArrayList<>();
         Map<String, String> artistList = song.getArtists();
 
-        artistList.forEach((id,name) -> {
-           artists.add(createArtist(id,name));
-        });
 
         Song s = Song.builder()
                 .uri(song.getUri())
                 .name(song.getName())
-                .artists(artists)
                 .duration(song.getDuration().intValue())
                 .build();
+
+        artistList.forEach((id, name) -> {
+            createArtist(s.getId(), id, name);
+        });
+
+        Amplify.DataStore.save(s,
+                res -> Log.d("CFM Amplify Interaction", "Successfully created song"),
+                error -> Log.e("CFM Amplify Interaction", "Error creating song", error));
         return s;
     }
 
-    public Artist createArtist(String id, String name) {
+    public void createArtist(String songId, String id, String name) {
         Artist artist = Artist.builder()
                 .artId(id)
                 .name(name)
+                .songArtistsId(songId)
                 .build();
+        Amplify.DataStore.save(artist,
+                res -> Log.d("CFM Amplify Interaction", "Successfully created artist"),
+                error -> Log.e("CFM Amplify Interaction", "Error creating artist", error));
 
-        return artist;
     }
 
     public void queryUser(String email, VolleyCallBack callBack) {
