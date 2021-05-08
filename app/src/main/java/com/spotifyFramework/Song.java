@@ -1,13 +1,14 @@
-package spotifyFramework;
+package com.spotifyFramework;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonObject;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class Song {
 
@@ -15,10 +16,10 @@ public class Song {
 	private String uri;
 	private String name;
 	private Long duration_ms;
-	private List<String> artistsList = new ArrayList<String>();
+	private Map<String,String> artistsList = new HashMap<String,String>();
 	private List<String> albumImages = new ArrayList<String>();
-	private String artist_id;
 	private String albumName;
+	private int status;
 
 	//Song Features Fields
 	private float danceability;
@@ -34,6 +35,7 @@ public class Song {
 	public Song(String id, String name) {
 		this.name = name;
 		this.id = id;
+		status = 2;
 	}
 
 	public String getId() {
@@ -48,9 +50,26 @@ public class Song {
 		return albumName;
 	}
 
-	public List<String> getArtists() {
+	public Map<String, String> getArtists() {
 		return artistsList;
 	}
+
+	public List<String> getArtistNames() {
+		List<String> artists = new ArrayList<>();
+		for(String s: artistsList.values()) {
+			artists.add(s);
+		}
+		return artists;
+	}
+	public String getUri() {
+		return uri;
+	}
+
+	public Long getDuration() {
+		return duration_ms;
+	}
+
+	public int getStatus() {return status;}
 
 	public float getAcousticness() {
 		return acousticness;
@@ -121,11 +140,13 @@ public class Song {
 		albumImages.add(image);
 	}
 
-	public void setArtist(String artist) {
-		if (artistsList == null) {
-			artistsList = new ArrayList<String>();
-		}
-		artistsList.add(artist);
+	public void setArtist(String artist, String artistId) {
+		artistsList.put(artistId, artist);
+	}
+
+	public void setStatus(int x) {
+		if(x <= 3 && x >=1)
+			status = x;
 	}
 
 	public String toString() {
@@ -136,7 +157,7 @@ public class Song {
 
 	public String artistsToString(int limit) {
 		StringBuilder sb = new StringBuilder();
-		sb.append(getArtists().get(0));
+		sb.append(getArtistNames().get(0));
 		for (int i = 1; i < getArtists().size(); i++) {
 			sb.append(", " + getArtists().get(i));
 		}
@@ -148,12 +169,6 @@ public class Song {
 		return res;
 	}
 
-	public String getUri() {
-		return uri;
-	}
 
-	public Long getDuration() {
-		return duration_ms;
-	}
 
 }

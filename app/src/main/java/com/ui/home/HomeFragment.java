@@ -1,4 +1,4 @@
-package ui.home;
+package com.ui.home;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
@@ -15,11 +15,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.cfm.recommend.Recommender;
 import com.example.cfm.R;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import spotifyFramework.Song;
-import spotifyFramework.SongService;
+
+import com.spotifyFramework.Song;
+import com.spotifyFramework.SongService;
 
 public class HomeFragment extends Fragment {
 

@@ -1,4 +1,4 @@
-package ui;
+package com.ui;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -12,7 +12,9 @@ import android.util.Log;
 
 import com.amplifyframework.AmplifyException;
 import com.amplifyframework.core.Amplify;
+import com.amplifyframework.core.model.query.Where;
 import com.amplifyframework.datastore.AWSDataStorePlugin;
+import com.amplifyframework.datastore.generated.model.User;
 import com.example.cfm.R;
 
 
@@ -21,6 +23,7 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.tasks.apmlify.SaveWorker;
 
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
@@ -29,11 +32,13 @@ import androidx.navigation.NavController;
 import androidx.navigation.Navigation;
 import androidx.navigation.ui.AppBarConfiguration;
 import androidx.navigation.ui.NavigationUI;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkRequest;
 
 import java.util.ArrayList;
 import org.jetbrains.annotations.NotNull;
-import spotifyFramework.Song;
-import spotifyFramework.SongService;
+import com.spotifyFramework.Song;
+import com.spotifyFramework.SongService;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -75,6 +80,24 @@ public class MainActivity extends AppCompatActivity {
 		NavigationUI.setupWithNavController(navView, navController);
 
 		locationTest();
+
+		amplifyTest();
+	}
+
+	private void amplifyTest() {
+		WorkRequest saveWorkRequest = new OneTimeWorkRequest().Builder(User.class).build();
+
+    	Amplify.DataStore.query(User.class, Where.id(user.getId()),
+				matches -> {
+    				if (matches.hasNext()) {
+    					User theUser = matches.next();
+    					Amplify.DataStore.delete(theUser,
+								deleted -> Log.i("tests", "Deleted a user."),
+								failure -> Log.e("tests", "Delete failed.", failure));
+					}
+				},
+				failure -> Log.e("tests", "Query failed.", failure)
+		);
 	}
 
 	private void locationTest() {
@@ -119,6 +142,5 @@ public class MainActivity extends AppCompatActivity {
 	private void sendLocation() {
 		//TODO lemme find the schema
 	}
-
 
 }

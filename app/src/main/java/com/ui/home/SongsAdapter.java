@@ -1,4 +1,4 @@
-package ui.home;
+package com.ui.home;
 
 import android.app.Activity;
 import android.view.LayoutInflater;
@@ -12,7 +12,7 @@ import com.example.cfm.R;
 import com.squareup.picasso.Picasso;
 import java.util.Collections;
 import java.util.List;
-import spotifyFramework.Song;
+import com.spotifyFramework.Song;
 
 public class SongsAdapter extends RecyclerView.Adapter<SongsAdapter.ViewHolder> {
 

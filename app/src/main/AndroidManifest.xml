@@ -18,12 +18,12 @@
     android:theme="@style/Theme.Cfm">
     <activity
       android:label="@string/title_activity_login"
-      android:name="ui.LoginActivity"
+      android:name="com.ui.LoginActivity"
       android:theme="@style/Theme.Cfm.NoActionBar"></activity>
 
     <activity
       android:label="@string/app_name"
-      android:name="ui.SplashActivity"
+      android:name="com.ui.SplashActivity"
       android:theme="@style/Theme.Cfm.NoActionBar">
       <intent-filter>
         <action android:name="android.intent.action.MAIN" />
@@ -33,9 +33,9 @@
     </activity>
 
     <activity
-      android:name="ui.MainActivity"
+      android:name="com.ui.MainActivity"
       android:theme="@style/Theme.Cfm.NoActionBar" />
-    <receiver android:name="ui.MainActivity">
+    <receiver android:name="com.ui.MainActivity">
       <intent-filter>
         <action android:name="com.spotify.music.active" />
       </intent-filter>

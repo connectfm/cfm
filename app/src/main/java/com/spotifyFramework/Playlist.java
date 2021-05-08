@@ -1,4 +1,4 @@
-package spotifyFramework;
+package com.spotifyFramework;
 
 import android.graphics.Bitmap;
 import java.util.List;

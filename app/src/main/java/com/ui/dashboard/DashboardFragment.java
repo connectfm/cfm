@@ -1,4 +1,4 @@
-package ui.dashboard;
+package com.ui.dashboard;
 
 import android.os.Bundle;
 import android.view.LayoutInflater;

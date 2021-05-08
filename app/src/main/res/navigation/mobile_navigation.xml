@@ -8,25 +8,25 @@
   <fragment
     android:id="@+id/navigation_home"
     android:label="@string/title_home"
-    android:name="ui.home.HomeFragment"
+    android:name="com.ui.home.HomeFragment"
     tools:layout="@layout/fragment_home" />
 
   <fragment
     android:id="@+id/navigation_dashboard"
     android:label="@string/title_dashboard"
-    android:name="ui.dashboard.DashboardFragment"
+    android:name="com.ui.dashboard.DashboardFragment"
     tools:layout="@layout/fragment_dashboard" />
 
   <fragment
     android:id="@+id/song_dashboard"
     android:label="Playback"
-    android:name="ui.playback.SongFragment"
+    android:name="com.ui.playback.SongFragment"
     tools:layout="@layout/fragment_song" />
 
   <fragment
       android:id="@+id/navigation_settings"
       android:label="Settings"
-      android:name="ui.settings.SettingsFragment"
+      android:name="com.ui.settings.SettingsFragment"
       tools:layout="@layout/fragment_settings" />
 
 </navigation>
