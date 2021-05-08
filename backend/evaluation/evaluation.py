@@ -81,7 +81,7 @@ def recommend_n(user: model.User,
 	return np.array([rec.recommend(user.name) for _ in range(n)])
 
 
-def compare_songs_to_user(user: model.User, 
+def compare_songs_to_user(user: model.User,
 						  song_features: np.ndarray) -> np.ndarray:
 	"""Evaluates how similar the recommended songs are in comparison to the user's taste ratings.
 	Returns avg of |taste.attr - song.attr| for attr in song over all songs.
@@ -93,7 +93,7 @@ def compare_songs_to_user(user: model.User,
 	# Compute the difference between user taste and song features for each song.
 	for features in song_features:
 		for i in range(len(features)):
-			del_taste[i] = abs(taste[i] - features[i])
+			del_taste[i] += abs(taste[i] - features[i])
 	
 	return del_taste / len(song_features)
 
@@ -142,7 +142,11 @@ def plot_umap(clusters: np.ndarray, db: model.RecommendDB):
 	cluster_sizes = clusters.shape[1] # Size is a n_clusters * size of a cluster * n_features per song (9)
 
 
-def test_n_biases(user: model.User, db: model.RecommendDB, rec: recommend.Recommender, n: int) -> np.ndarray:
+def test_n_biases(user: model.User,
+				  db: model.RecommendDB,
+				  rec: recommend.Recommender,
+				  n_biases: int=2,
+				  n_songs: int=5) -> np.ndarray:
 	"""Changes the bias of a user n times (iter #1 is for a bias of 0).
 	Logs the different del_taste values for each bias after recommending 10 songs.
 	Returns a matrix. Each vector is an individual del_taste value (difference between taste and song recommended).
@@ -150,7 +154,7 @@ def test_n_biases(user: model.User, db: model.RecommendDB, rec: recommend.Recomm
 	del_taste = []
 
 	logger.info(f"Sampling for user: {user.name}. features = {db.get_features(user.name, song=False)}")
-	songs = recommend_n(user, rec, 10)
+	songs = recommend_n(user, rec, n_songs)
 	features = db.get_features(*songs, song=True)[1]
 	del_taste.append(np.array(compare_songs_to_user(user, features)))
 	db.set_bias(user.name, 0)
@@ -160,28 +164,42 @@ def test_n_biases(user: model.User, db: model.RecommendDB, rec: recommend.Recomm
 	# log messages like this to a file.
 	with open('eval.log', 'a') as logfile:
 		logfile.write(f"Of {len(songs)} songs sampled, avg dTaste = {del_taste[-1]}"
-					  f" (sum={sum(del_taste[-1][:-1])}, excluding last term) w/ bias={user.bias}\n")
+					  f" (sum={sum(del_taste[-1][:2]) + sum(del_taste[-1][3:-1])}) w/ bias={user.bias}\n")
 
-	for i in range(n):
+	biases = np.linspace(0.1, 1, n_biases)
+	for i in range(n_biases):
 		# Use FEATURE_LOOKUP to change features and update for this user.
-		new_bias = round(max(np.random.random(), 0.1), 3)
+		new_bias = biases[i]
 		db.set_bias(user.name, new_bias)
 		user.bias = new_bias
 
-		songs = recommend_n(user, rec, 10)
+		songs = recommend_n(user, rec, n_songs)
 		features = db.get_features(*songs, song=True)[1]
 		del_taste.append(np.array(compare_songs_to_user(user, features)))
 
 		with open('eval.log', 'a') as logfile:
 			logfile.write(f"Of {len(songs)} songs sampled, avg dTaste = {del_taste[-1]}"
-						  f" (sum={sum(del_taste[-1][:-1])}, excluding last term) w/ bias={user.bias}\n")
+						  f" (sum={sum(del_taste[-1][:2]) + sum(del_taste[-1][3:-1])}) w/ bias={user.bias}\n")
 	return np.array(del_taste)
+
+
+def analyze_scores(rec: recommend.Recommender,
+				   user: model.User,
+				   neighbors: np.ndarray):
+	"""Computes the scores for each of user's neighbors
+	and does stuff.
+	"""
+	scores = []
+	for neighbor in neighbors:
+		scores.append(rec.compute_scores(user, neighbor))
+
+	print(scores)
 
 
 # For now, just keeping this in a single method, will likely refactor to a class since that makes more sense
 def main():
-	with open('eval.log', 'a') as logfile:
-		logfile.write(f"Starting execution @ {datetime.datetime.now()}\n")
+	# with open('eval.log', 'a') as logfile:
+	# 	logfile.write(f"Starting execution @ {datetime.datetime.now()}\n")
 
 	# Initialize data/references to be used throughout evaluation
 	songs = json.loads(open('data/clust_to_song_dict.json', 'r').readline())
@@ -197,6 +215,9 @@ def main():
 
 	logger.info(f"Basic recommendation with max_scores=0, max_ratings=0, min_similar=1 (forced always computing)")
 	# Generate a basic recommendation set
+	# model.RecommendDB(max_scores=0, max_ratings=0, min_similar=1, seed=SEED) - normal
+	# model.RecommendDB(max_scores=0.1, max_ratings=0.1, min_similar=s) - fuzzy
+	s = round(max(np.random.random(), 0.1), 3)
 	with model.RecommendDB(max_scores=0, max_ratings=0, min_similar=1, seed=SEED) as db:
 		# Store preliminary data
 		synthetic.store_features(db, keys, features)
@@ -207,20 +228,13 @@ def main():
 
 		# Track timing for recommendation
 		t, rec = timed_evaluation(db, rec_params=REC_CFG)
-
+		# analyze_scores(rec, users[0], db.get_neighbors((users[0]).name, n=50))
+		# rec.recommend(users[0].name)
+		# return 0
 		# Can perform analysis on del_taste now if we find it is necessary.
-		del_taste = test_n_biases(users[0], db, rec, 2)
-		return 0
+		for i in range(1000):
+			del_taste = test_n_biases(users[i], db, rec, n_biases=8, n_songs=2)
 
-	# Time a few recommendations for fuzzy models
-	for i in range(5):
-		s = round(max(np.random.random(), 0.1), 3)
-
-		logger.info(f"Fuzzy matching run #{i+1}, s={s}")
-		db = model.RecommendDB(max_scores=0.1, max_ratings=0.1, min_similar=s)
-		t, rec = timed_evaluation(db)
-
-		logger.info(f"#{i+1} took {t}s\n")
 
 if __name__ == '__main__':
 	main()
