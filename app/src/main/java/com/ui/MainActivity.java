@@ -15,6 +15,7 @@ import com.amplifyframework.core.Amplify;
 import com.amplifyframework.core.model.query.Where;
 import com.amplifyframework.datastore.AWSDataStorePlugin;
 import com.amplifyframework.datastore.generated.model.User;
+import com.datastoreInteractions.AmplifyService;
 import com.example.cfm.R;
 
 
@@ -105,19 +106,19 @@ public class MainActivity extends AppCompatActivity {
 		final long LOCATION_INTERVAL = 900000;
 		final long FASTEST_LOCATION_INTERVAL = LOCATION_INTERVAL;
 
-		System.out.println("starting the test");
 		LocationRequest lr = LocationRequest.create();
 		lr.setInterval(LOCATION_INTERVAL);
 		lr.setFastestInterval(FASTEST_LOCATION_INTERVAL);
 		lr.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
 		System.out.println(Build.VERSION.SDK_INT);
 
-		final HandlerThread ht = new HandlerThread("location stuff");
+		final HandlerThread ht = new HandlerThread("Background location checker");
 		ht.start();
 
 		if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
+				!= PackageManager.PERMISSION_GRANTED || ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
 				!= PackageManager.PERMISSION_GRANTED) {
-			System.out.println("damn pt 2");
+			Log.e("Location perms", "Permissions were not granted.");
 		}
 
 		LocationServices.getFusedLocationProviderClient(this)
@@ -125,21 +126,23 @@ public class MainActivity extends AppCompatActivity {
 					@Override
 					public void onLocationResult(@NotNull LocationResult lr) {
 						super.onLocationResult(lr);
-						System.out.println("in the locationcallback");
 						if (lr != null && lr.getLocations().size() > 0) {
 							int i = lr.getLocations().size();
 							Location loc = lr.getLocations().get(i - 1);
-							System.out.println(loc);
-							sendLocation();
+							sendLocation(loc);
+							//TODO implement only sending when necessary
 						}
 						//LocationServices.getFusedLocationProviderClient(MainActivity.this).removeLocationUpdates(this);
 						//ht.quit();
 					}
 				}, ht.getLooper());
-		System.out.println("finishing the test");
 	}
 
-	private void sendLocation() {
+	private void sendLocation(Location loc) {
+
+    	AmplifyService as = new AmplifyService(getApplicationContext());
+    	as.queryUser(getSharedPreferences("SPOTIFY", 0).getString("email", "no email address found"), null);	//TODO why a callback?
+		as.updateLocation(loc.getLatitude(), loc.getLongitude());
 		//TODO lemme find the schema
 	}
 

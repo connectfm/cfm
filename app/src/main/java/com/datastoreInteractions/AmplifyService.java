@@ -55,12 +55,16 @@ public class AmplifyService {
 
     }
 
-    public Location createLocation(Double lat, Double longi) {
-        Location location = Location.builder()
+    public void updateLocation(Double lat, Double longi) {
+        Location loc = Location.builder()
                 .lat(lat)
                 .longi(longi)
                 .build();
-        return location;
+        User edited = queriedUser.copyOfBuilder().location(loc).build();
+        Amplify.DataStore.save(edited,
+                updated -> Log.d("CFM Amplify Interaction", "Updated a user location."),
+                failure -> Log.e("CFM Amplify Interaction", "Update failed.", failure)
+        );
     }
 
     public SongFeatures createSongFeatures(com.spotifyFramework.Song song) {

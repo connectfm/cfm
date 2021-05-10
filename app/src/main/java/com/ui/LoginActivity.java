@@ -89,6 +89,7 @@ public class LoginActivity extends AppCompatActivity {
 			User user = userService.getUser();
 			editor = getSharedPreferences("SPOTIFY", 0).edit();
 			editor.putString("userid", user.id);
+			editor.putString("email", user.email);
 			editor.putString("displayName", user.display_name);
 			editor.putString("country", user.country);
 			Log.d("STARTING", "GOT USER INFORMATION");
