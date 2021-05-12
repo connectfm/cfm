@@ -12,7 +12,7 @@ import java.util.Map;
 
 public class Song {
 
-	private final String id;
+	private String id;
 	private String uri;
 	private String name;
 	private Long duration_ms;
@@ -39,6 +39,9 @@ public class Song {
 	}
 
 	public String getId() {
+
+		if(id==null)
+			id = uri.substring(uri.lastIndexOf(":"),uri.length());
 		return id;
 	}
 
@@ -56,7 +59,7 @@ public class Song {
 
 	public List<String> getArtistNames() {
 		List<String> artists = new ArrayList<>();
-		for(String s: artistsList.values()) {
+		for(String s: artistsList.keySet()) {
 			artists.add(s);
 		}
 		return artists;
@@ -141,6 +144,9 @@ public class Song {
 	}
 
 	public void setArtist(String artist, String artistId) {
+		if(artistsList == null) {
+			artistsList = new HashMap<String, String>();
+		}
 		artistsList.put(artistId, artist);
 	}
 

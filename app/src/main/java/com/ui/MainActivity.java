@@ -82,9 +82,9 @@ public class MainActivity extends AppCompatActivity {
 
 		locationTest();
 
-		amplifyTest();
+		//amplifyTest();
 	}
-
+/*
 	private void amplifyTest() {
 		WorkRequest saveWorkRequest = new OneTimeWorkRequest().Builder(User.class).build();
 
@@ -100,7 +100,7 @@ public class MainActivity extends AppCompatActivity {
 				failure -> Log.e("tests", "Query failed.", failure)
 		);
 	}
-
+*/
 	private void locationTest() {
 
 		final long LOCATION_INTERVAL = 900000;
@@ -129,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
 						if (lr != null && lr.getLocations().size() > 0) {
 							int i = lr.getLocations().size();
 							Location loc = lr.getLocations().get(i - 1);
-							sendLocation(loc);
+							//sendLocation(loc);
 							//TODO implement only sending when necessary
 						}
 						//LocationServices.getFusedLocationProviderClient(MainActivity.this).removeLocationUpdates(this);

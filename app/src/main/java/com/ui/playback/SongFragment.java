@@ -1,5 +1,6 @@
 package com.ui.playback;
 
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 
@@ -40,9 +41,9 @@ public class SongFragment extends Fragment {
     public static TextView songName;
 
     //Buttons initialized in the fragment
-    public Button playButton;
-    public Button nextButton;
-    public Button prevButton;
+    public ImageButton playButton;
+    public ImageButton nextButton;
+    public ImageButton prevButton;
     public ImageButton likeButton;
     public ImageButton dislikeButton;
     public SeekBar seekBar;
@@ -73,12 +74,7 @@ public class SongFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View root = inflater.inflate(R.layout.fragment_song, container, false);
-        initializeSongInfo(() -> {
-            setSongLayout(root,songQueue.get(songPos));
-            initializeObjects(root);
-            initializeSeekBar(songQueue.get(songPos));
-            firstPlay();
-        });
+        initializeSong(root);
         return root;
     }
 
@@ -104,21 +100,20 @@ public class SongFragment extends Fragment {
     }
 
     @RequiresApi(api = Build.VERSION_CODES.N)
-    private void initializeSongInfo(VolleyCallBack callBack) {
+    private void initializeSong(View view) {
         songService = new SongService(getActivity());
 
         /*
         Replace this stuff with the Recommender request
          */
         songService.getRecentlyPlayed(() -> {
-            songQueue = removeDupes(songService.getPlaylist());
-            
-            for(Song s: songQueue) {
-                System.out.println(s.getName());
-                songService.getFeatures(s);
+            songQueue = songService.getPlaylist();
+            removeDupes(songQueue);
+            setSongLayout(view,songQueue.get(songPos));
+            initializeObjects(view);
+            initializeSeekBar(songQueue.get(songPos));
+            firstPlay();
 
-            }
-            callBack.onSuccess();
         });
     }
 
@@ -175,13 +170,15 @@ public class SongFragment extends Fragment {
             public void onClick(View v) {
                 if(isPaused) {
                     isPaused = false;
+                    Drawable res = getContext().getDrawable(R.drawable.pause);
+                    playButton.setBackground(res);
                     playSong();
-                    playButton.setText("Pause");
                 }
                 else {
-                    pauseSong();
                     isPaused = true;
-                    playButton.setText("Play");
+                    Drawable res = getContext().getDrawable(R.drawable.play);
+                    playButton.setBackground(res);
+                    pauseSong();
                 }
             }
         });
@@ -211,23 +208,33 @@ public class SongFragment extends Fragment {
         likeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Drawable res;
                 if(currentSong.getStatus() == 3) {
                     currentSong.setStatus(2);
+                    res = getContext().getDrawable(R.drawable.thumbs_up);
                 }
-                else
+                else{
                     currentSong.setStatus(3);
+                    res = getContext().getDrawable(R.drawable.thumbs_up_pressed);
+                }
+                likeButton.setBackground(res);
+
             }
         });
         dislikeButton = v.findViewById(R.id.dislike);
         dislikeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Drawable res;
                 if(currentSong.getStatus() == 1) {
                     currentSong.setStatus(2);
+                    res = getContext().getDrawable(R.drawable.thumbs_up);
                 }
                 else {
                     currentSong.setStatus(1);
+                    res = getContext().getDrawable(R.drawable.thumbs_up_pressed);
                 }
+                dislikeButton.setBackground(res);
             }
         });
         playbackService = new PlaybackService(getActivity());
@@ -243,7 +250,7 @@ public class SongFragment extends Fragment {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 System.out.println(progress);
-                if(!fromUser && timeAtSeek > progress){
+                if(!fromUser && timeAtSeek >= progress){
                     songPos++;
                     System.out.println(songQueue.get(songPos).getName());
                     setSongLayout(getView(), songQueue.get(songPos));

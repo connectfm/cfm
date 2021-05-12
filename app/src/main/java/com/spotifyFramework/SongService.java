@@ -116,6 +116,7 @@ public class SongService {
 								JSONObject song = jsonArray.getJSONObject(i);
 								JSONObject trackInfo = song.getJSONObject("track");
 								Song s = gson.fromJson(trackInfo.toString(), Song.class);
+								getFeatures(s);
 								JSONObject object = trackInfo.optJSONObject("album");
 								s.setAlbumName(object.optString("name"));
 								JSONArray images = object.optJSONArray("images");
@@ -128,8 +129,11 @@ public class SongService {
 								System.out.println(artists.length());
 								for (int j = 0; j < artists.length(); j++) {
 									JSONObject artist = artists.getJSONObject(j);
-
+									System.out.println(artist.toString());
+									System.out.println(artist.getString("id"));
+									System.out.println(artist.getString("name"));
 									s.setArtist(artist.getString("id"),artist.getString("name"));
+
 								}
 								playlist.add(s);
 							}
@@ -202,7 +206,7 @@ public class SongService {
 	}
 	
 	public void getFeatures(Song current) {
-		String endpoint = "https://api.spotify.com/v1/audio-features/" + song.getId();
+		String endpoint = "https://api.spotify.com/v1/audio-features/" + current.getId();
 		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
 				Request.Method.GET,
 				endpoint,
