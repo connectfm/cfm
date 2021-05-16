@@ -13,6 +13,9 @@ def _convert(
 
 
 # Environment variables
+HOST = os.getenv('HOST', default=None)
+PORT = _convert(os.getenv('PORT', default=None), int)
+CONFIG = _convert((HOST, PORT), lambda h, p: {'host': h, 'port': p})
 MIN_SIMILAR = _convert(os.getenv('MIN_SIMILAR', default=0.2), float)
 MAX_SCORES = _convert(os.getenv('MAX_SCORES', default=10), int)
 MAX_RATINGS = _convert(os.getenv('MAX_RATINGS', default=10), int)
@@ -27,9 +30,9 @@ logger = util.get_logger(__name__, LOG_LEVEL)
 
 
 def handle(event, context):
-	logger.info('## ENV VARS\n%s', jsonpickle.encode(dict(**os.environ)))
-	logger.info('## EVENT\n%s', event := jsonpickle.encode(event))
-	logger.info('## CONTEXT\n%s', jsonpickle.encode(context))
+	logger.info('ENVIRONMENT\n%s', jsonpickle.encode(dict(**os.environ)))
+	logger.info('EVENT\n%s', event := jsonpickle.encode(event))
+	logger.info('CONTEXT\n%s', jsonpickle.encode(context))
 	try:
 		recommendation = _handle(event['body'])
 		response = _response(200, recommendation, event)
@@ -43,6 +46,8 @@ def _handle(user: str) -> str:
 			min_similar=MIN_SIMILAR,
 			max_ratings=MAX_RATINGS,
 			max_scores=MAX_SCORES,
+			metric=METRIC,
+			config=CONFIG,
 			seed=SEED) as db:
 		rec = recommend.Recommender(
 			db=db,
