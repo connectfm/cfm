@@ -49,7 +49,11 @@ class Recommender:
 	def __attrs_post_init__(self):
 		random.seed(self.seed)
 		self._rng = np.random.default_rng(self.seed)
-		logger.debug('Distance metric: %s', self.metric.__name__)
+		if isinstance(self.metric, str):
+			name = self.metric
+		else:
+			name = self.metric.__name__
+		logger.debug('Distance metric: %s', name)
 		logger.debug('Seed: %s', repr(self.seed))
 
 	@codetiming.Timer(text='Time to recommend: {:0.6f} s', logger=logger.info)

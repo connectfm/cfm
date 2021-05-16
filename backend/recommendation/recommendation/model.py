@@ -105,11 +105,7 @@ class RecommendDB:
 
 	def __enter__(self):
 		logger.debug('Establishing connection to the database')
-		if self.config is None:
-			config = {}
-		else:
-			args = redis.Redis.__dict__
-			config = {k: v for k, v in self.config.items() if k in args}
+		config = {} if self.config is None else self.config
 		self._redis = redis.Redis(**config)
 		return self
 

@@ -15,7 +15,7 @@ def _convert(
 # Environment variables
 HOST = os.getenv('HOST', default=None)
 PORT = _convert(os.getenv('PORT', default=None), int)
-CONFIG = _convert((HOST, PORT), lambda h, p: {'host': h, 'port': p})
+CONFIG = _convert((HOST, PORT), lambda x: {'host': x[0], 'port': x[1]})
 MIN_SIMILAR = _convert(os.getenv('MIN_SIMILAR', default=0.2), float)
 MAX_SCORES = _convert(os.getenv('MAX_SCORES', default=10), int)
 MAX_RATINGS = _convert(os.getenv('MAX_RATINGS', default=10), int)
@@ -24,14 +24,14 @@ N_SONGS = _convert(os.getenv('N_SONGS', default=1_000), int)
 N_NEIGHBORS = _convert(os.getenv('N_NEIGHBORS', default=100), int)
 METRIC = _convert(os.getenv('METRIC', default='euclidean'), str.lower)
 SEED = os.getenv('SEED')
-LOG_LEVEL = _convert(os.getenv('LOG_LEVEL', default='INFO'), str.capitalize)
+LOG_LEVEL = _convert(os.getenv('LOG_LEVEL', default='INFO'), str.upper)
 # Globals
 logger = util.get_logger(__name__, LOG_LEVEL)
 
 
 def handle(event, context):
 	logger.info('ENVIRONMENT\n%s', jsonpickle.encode(dict(**os.environ)))
-	logger.info('EVENT\n%s', event := jsonpickle.encode(event))
+	logger.info('EVENT\n%s', jsonpickle.encode(event))
 	logger.info('CONTEXT\n%s', jsonpickle.encode(context))
 	try:
 		recommendation = _handle(event['body'])
