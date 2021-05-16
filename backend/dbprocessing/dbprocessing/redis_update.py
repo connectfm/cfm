@@ -35,7 +35,7 @@ TABLE_GROUP = ".*table/(.+)/stream.*"
 ELASTICACHE = {
     'PORT': 6379,
     # 'HOST': 'localhost'
-    'HOST': "connectfm.urj6ir.ng.0001.use2.cache.amazonaws.com"
+    'HOST': "demo2-ro.wrnqpf.ng.0001.use1.cache.amazonaws.com"
 }
 
 # obj should be json.loads(event)
