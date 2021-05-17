@@ -15,6 +15,7 @@ import com.amplifyframework.core.Amplify;
 import com.amplifyframework.core.model.query.Where;
 import com.amplifyframework.datastore.AWSDataStorePlugin;
 import com.amplifyframework.datastore.generated.model.User;
+import com.cfm.recommend.Recommender;
 import com.datastoreInteractions.AmplifyService;
 import com.example.cfm.R;
 
@@ -49,6 +50,7 @@ public class MainActivity extends AppCompatActivity {
 	private Song song;
 	private SongService songService;
 	private ArrayList<Song> recentlyPlayed;
+	private Recommender recommender;
 
 
     @RequiresApi(api = Build.VERSION_CODES.R)
@@ -68,7 +70,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
 		songService = new SongService(getApplicationContext());
-
+		recommender = new Recommender(getApplicationContext());
 		SharedPreferences preferences = this.getSharedPreferences("SPOTIFY", 0);
 		BottomNavigationView navView = findViewById(R.id.nav_view);
 		// Passing each menu ID as a set of Ids because each
@@ -81,9 +83,14 @@ public class MainActivity extends AppCompatActivity {
 		NavigationUI.setupWithNavController(navView, navController);
 
 		locationTest();
-
+		getRecommendations();
 		//amplifyTest();
 	}
+
+	private void getRecommendations() {
+    	recommender.get("05", () -> {});
+	}
+
 /*
 	private void amplifyTest() {
 		WorkRequest saveWorkRequest = new OneTimeWorkRequest().Builder(User.class).build();
