@@ -6,20 +6,31 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <ImageView
+        android:id="@+id/logo"
+        android:layout_width="250dp"
+        android:layout_height="100dp"
+        android:background="@drawable/connectfm_logo"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="@id/set_bias_text"
+        android:layout_marginLeft="25dp"
+        android:layout_marginTop="50dp" />
+
     <TextView
         android:id="@+id/textView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginStart="148dp"
-        android:layout_marginTop="56dp"
+        android:layout_marginTop="100dp"
         android:text="user settings"
+        android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="@+id/logo" />
 
     <EditText
         android:id="@+id/set_bias_field"
-        android:layout_width="155dp"
-        android:layout_height="37dp"
+        android:layout_width="48dp"
+        android:layout_height="26dp"
         android:layout_marginTop="40dp"
         android:ems="10"
         android:inputType="number"
@@ -28,8 +39,8 @@
 
     <TextView
         android:id="@+id/set_bias_text"
-        android:layout_width="69dp"
-        android:layout_height="41dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginStart="40dp"
         android:layout_marginTop="4dp"
         android:text="set bias (0-100)"
@@ -41,14 +52,14 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="set radius (0-100 miles)"
+        android:layout_marginTop="10dp"
         app:layout_constraintStart_toStartOf="@+id/set_bias_text"
         app:layout_constraintTop_toTopOf="@+id/set_radius_field" />
 
     <EditText
         android:id="@+id/set_radius_field"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="52dp"
+        android:layout_width="123dp"
+        android:layout_height="40dp"
         android:ems="10"
         android:inputType="number"
         app:layout_constraintStart_toEndOf="@+id/set_radius_text"

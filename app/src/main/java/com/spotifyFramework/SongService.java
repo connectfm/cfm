@@ -12,6 +12,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import com.android.volley.toolbox.Volley;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -158,6 +159,69 @@ public class SongService {
 
 	}
 
+	public void populateMultipleSongs(ArrayList<String> ids, VolleyCallBack callBack) {
+		String endpoint = "https://api.spotify.com/v1/tracks?ids=";
+		playlist = new ArrayList<Song>();
+
+		for (int i = 0; i < ids.size(); i++) {
+			if (i == ids.size() - 1) {
+				endpoint = endpoint + ids.get(i) + "&market=ES";
+			} else {
+				endpoint = endpoint + ids.get(i) + "%2C";
+			}
+		}
+
+		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+				Request.Method.GET,
+				endpoint,
+				null,
+				new Response.Listener<JSONObject>() {
+					@Override
+					public void onResponse(JSONObject response) {
+						System.out.println("SYSTEM RESPONSE:: " + response.toString());
+						try {
+							Gson gson = new Gson();
+							JSONArray songs = response.optJSONArray("tracks");
+							for (int i = 0; i < songs.length(); i++) {
+								JSONObject looking = songs.getJSONObject(i);
+								Song current = gson.fromJson(looking.toString(), Song.class);
+								JSONObject object = looking.optJSONObject("album");
+								JSONArray images = object.optJSONArray("images");
+								JSONArray artists = object.optJSONArray("artists");
+								for (int j = 0; j < images.length(); j++) {
+									JSONObject pic = images.getJSONObject(j);
+									current.setImage(pic.optString("url"));
+								}
+
+								for(int j = 0; j < artists.length(); j++) {
+									JSONObject artist = artists.getJSONObject(j);
+									current.setArtist(artist.getString("id"),artist.getString("name"));
+								}
+								playlist.add(current);
+							}
+						} catch (JSONException e) {
+							e.printStackTrace();
+						} finally {
+							callBack.onSuccess();
+						}
+					}
+				}, new Response.ErrorListener() {
+			@Override
+			public void onErrorResponse(VolleyError error) {
+				Log.e("Mistakes were made", error.getMessage());
+			}
+		}) {
+			@Override
+			public Map<String, String> getHeaders() throws AuthFailureError {
+				Map<String, String> headers = new HashMap<String, String>();
+				String token = preferences.getString("TOKEN", "");
+				String auth = "Bearer " + token;
+				headers.put("Authorization", auth);
+				return headers;
+			}
+		};
+		queue.add(jsonObjectRequest);
+	}
 	public void populateSong(String id, final VolleyCallBack callBack) {
 		String endpoint = "https://api.spotify.com/v1/tracks/" + id;
 		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
@@ -168,14 +232,14 @@ public class SongService {
 					@Override
 					public void onResponse(JSONObject response) {
 						try {
-							Song currentSong;
+
 							Gson gson = new Gson();
-							currentSong = gson.fromJson(response.toString(), Song.class);
+							song = gson.fromJson(response.toString(), Song.class);
 							JSONObject object = response.optJSONObject("album");
 							JSONArray images = object.optJSONArray("images");
 							for (int i = 0; i < images.length(); i++) {
 								JSONObject pic = images.getJSONObject(i);
-								currentSong.setImage(pic.optString("url"));
+								song.setImage(pic.optString("url"));
 							}
 							callBack.onSuccess();
 						} catch (JSONException e) {
@@ -234,3 +298,4 @@ public class SongService {
 	}
 
 }
+

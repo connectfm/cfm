@@ -21,7 +21,7 @@
   <string name="already_user">Already a user?</string>
   <string name="login_button">LOG IN</string>
   <string name="listening_history">You\'ve been listening to...</string>
-
+  <string name="please_wait"> Please wait while we compile your future favorite songs</string>
   <string name="welcome">Welcome</string>
   <string name="welcome_text">Sign up for free music on your phone, tablet, and computer.</string>
 </resources>

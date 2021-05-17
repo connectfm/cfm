@@ -48,7 +48,6 @@ public class PlaybackService {
 
 	public void currentlyPlaying(VolleyCallBack callBack) {
 		String endpoint = "https://api.spotify.com/v1/me/player/currently-playing";
-
 		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
 				Request.Method.GET,
 				endpoint,
@@ -57,9 +56,6 @@ public class PlaybackService {
 					@Override
 					public void onResponse(JSONObject response) {
 						try {
-
-							Gson gson = new Gson();
-							current = gson.fromJson(response.toString(), Song.class);
 							progress = response.getInt("progress_ms");
 						} catch (JSONException e) {
 							e.printStackTrace();
@@ -95,14 +91,10 @@ public class PlaybackService {
 					@Override
 
 					public void onResponse(JSONObject response) {
-						System.out.println("RESPONSE: " + response);
 						JSONArray devices = response.optJSONArray("devices");
 						for (int i = 0; i < devices.length(); i++) {
 							try {
-								System.out.println(devices.getString(i));
 								JSONObject device = devices.getJSONObject(i);
-								System.out.println(Build.MODEL + " :: " + device.getString("name"));
-								System.out.println(Build.MODEL.equals(device.getString("name")));
 								if (device.getString("name").equals(android.os.Build.MODEL)) {
 									deviceId = device.getString("id");
 									SharedPreferences.Editor editor = preferences.edit();
@@ -195,8 +187,6 @@ public class PlaybackService {
 			e.printStackTrace();
 		}
 
-
-		System.out.println(parameters.toString());
 		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
 				Request.Method.PUT,
 				endpoint,

@@ -40,6 +40,9 @@ android {
 
 dependencies {
     def nav_version = "2.3.5"
+
+
+   'androidx.coordinatorlayout:coordinatorlayout:1.1.0'
     implementation 'androidx.annotation:annotation:1.1.0'
     compileOnly 'org.projectlombok:lombok:1.18.16'
     annotationProcessor 'org.projectlombok:lombok:1.18.16'

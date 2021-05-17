@@ -1,5 +1,6 @@
 package com.ui.playback;
 
+import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,6 +24,8 @@ import com.datastoreInteractions.AmplifyService;
 import com.example.cfm.R;
 import com.squareup.picasso.Picasso;
 import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -58,6 +61,8 @@ public class SongFragment extends Fragment {
     private Handler handler;
     private int timeAtSeek;
     private Song currentSong;
+    private ArrayList<String> ids = new ArrayList<String>();
+    private boolean buttonPressed = false;
 
 
 
@@ -65,7 +70,9 @@ public class SongFragment extends Fragment {
     //Storage for interactions with Spotify/Amplify
     private PlaybackService playbackService;
     private SongService songService;
-    private AmplifyService amplifyService;
+
+    private SharedPreferences preferences;
+
 
 
     @RequiresApi(api = Build.VERSION_CODES.N)
@@ -74,7 +81,21 @@ public class SongFragment extends Fragment {
                              Bundle savedInstanceState) {
         // Inflate the layout for this fragment
         View root = inflater.inflate(R.layout.fragment_song, container, false);
-        initializeSong(root);
+        songService = new SongService(root.getContext());
+        preferences = getActivity().getSharedPreferences("SPOTIFY",0);
+
+        for(int i = 1; i <= 3 ;i++) {
+            System.out.println(preferences.getString("id_"+i, ""));
+            ids.add(preferences.getString("id_"+i, ""));
+        }
+
+        songService.populateMultipleSongs(ids, () -> {
+            songQueue = songService.getPlaylist();
+            initializeObjects(root);
+            setSongLayout(root, songQueue.get(songPos));
+            playbackService.play(songQueue.get(0),0);
+        });
+
         return root;
     }
 
@@ -95,35 +116,7 @@ public class SongFragment extends Fragment {
         artists.setText(song.artistsToString(Integer.MAX_VALUE));
         albumName.setText(song.getAlbum());
         songName.setText(song.getName());
-
-
     }
-
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    private void initializeSong(View view) {
-        songService = new SongService(getActivity());
-
-        /*
-        Replace this stuff with the Recommender request
-         */
-        songService.getRecentlyPlayed(() -> {
-            songQueue = songService.getPlaylist();
-            removeDupes(songQueue);
-            setSongLayout(view,songQueue.get(songPos));
-            initializeObjects(view);
-            initializeSeekBar(songQueue.get(songPos));
-            firstPlay();
-
-        });
-    }
-
-    private void firstPlay() {
-        playbackService.findDevice(() -> {
-            playbackService.play(songQueue.get(0),0);
-        });
-
-    }
-
 
     private void playSong() {
 
@@ -159,10 +152,8 @@ public class SongFragment extends Fragment {
     private void initializeObjects(View v) {
         albumArt = v.findViewById(R.id.album_art);
         seekBar = v.findViewById(R.id.progressBar);
-        Long duration = songQueue.get(songPos).getDuration()/1000;
         handler = new Handler();
-
-        seekBar.setMax(duration.intValue());
+        initializeSeekBar(songQueue.get(songPos));
 
         playButton = v.findViewById(R.id.play);
         playButton.setOnClickListener(new View.OnClickListener() {
@@ -186,6 +177,7 @@ public class SongFragment extends Fragment {
         nextButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                buttonPressed = true;
                 skipSong();
                 songPos ++;
                 seekBar.setMax(songQueue.get(songPos).getDuration().intValue());
@@ -197,6 +189,7 @@ public class SongFragment extends Fragment {
             @Override
             public void onClick(View view) {
                 if(seekBar.getProgress() >= seekBar.getMax()/2) {
+                    buttonPressed = true;
                     playbackService.play(songQueue.get(songPos),0);
                 }
                 else {
@@ -214,6 +207,10 @@ public class SongFragment extends Fragment {
                     res = getContext().getDrawable(R.drawable.thumbs_up);
                 }
                 else{
+                    if(currentSong.getStatus()==1) {
+                        Drawable res2 = getContext().getDrawable(R.drawable.thumbs_up);
+                        dislikeButton.setBackground(res2);
+                    }
                     currentSong.setStatus(3);
                     res = getContext().getDrawable(R.drawable.thumbs_up_pressed);
                 }
@@ -230,7 +227,12 @@ public class SongFragment extends Fragment {
                     currentSong.setStatus(2);
                     res = getContext().getDrawable(R.drawable.thumbs_up);
                 }
+
                 else {
+                    if(currentSong.getStatus() == 3) {
+                        Drawable res2 = getContext().getDrawable(R.drawable.thumbs_up);
+                        likeButton.setBackground(res2);
+                    }
                     currentSong.setStatus(1);
                     res = getContext().getDrawable(R.drawable.thumbs_up_pressed);
                 }
@@ -238,7 +240,7 @@ public class SongFragment extends Fragment {
             }
         });
         playbackService = new PlaybackService(getActivity());
-        amplifyService = new AmplifyService(getActivity());
+
     }
 
 
@@ -249,17 +251,13 @@ public class SongFragment extends Fragment {
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
-                System.out.println(progress);
-                if(!fromUser && timeAtSeek >= progress){
-                    songPos++;
-                    System.out.println(songQueue.get(songPos).getName());
+                timeAtSeek = progress;
+
+                if(progress == songQueue.get(songPos).getDuration()) {
+                    skipSong();
+                    songPos ++;
+                    seekBar.setMax(songQueue.get(songPos).getDuration().intValue());
                     setSongLayout(getView(), songQueue.get(songPos));
-                    initializeSeekBar(songQueue.get(songPos));
-                    songService.getFeatures(songQueue.get(songPos));
-                    timeAtSeek = 0;
-                }
-                else {
-                    timeAtSeek = progress;
                 }
             }
 

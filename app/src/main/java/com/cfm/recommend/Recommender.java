@@ -22,7 +22,10 @@ import com.spotifyFramework.VolleyCallBack;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,19 +34,22 @@ import java.util.Map;
 public class Recommender {
 	private SongService songService;
 	private final RequestQueue queue;
-
+	private List<String> songs;
+	private String recommendation;
 	public Recommender(Context context) {
+		songs = new ArrayList<>();
 		queue = Volley.newRequestQueue(context);
 		songService = new SongService(context);
 	}
-	//public Song getRecommendation() {return recommendation;}
+
+	public String getRecommenation() {return recommendation;}
+	public List<String> getAllSongs() {return songs;}
 
 	public void get(String id,final VolleyCallBack callBack) {
 		String endpoint = "https://8vjxa5x5bc.execute-api.us-east-2.amazonaws.com/dev/recommendation";
 		try {
 			JSONObject params = new JSONObject();
 			params.put("id", id);
-			System.out.println(params.toString());
 			JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
 					Request.Method.POST,
 					endpoint,
@@ -51,7 +57,13 @@ public class Recommender {
 					new Response.Listener<JSONObject>() {
 						@Override
 						public void onResponse(JSONObject response) {
-							System.out.println("Recommender RESPONSE:: " + response.toString());
+							try {
+								recommendation = response.getString("message");
+								songs.add(response.getString("message"));
+							} catch (JSONException e) {
+								e.printStackTrace();
+							}
+							callBack.onSuccess();
 						}
 					},
 					new Response.ErrorListener() {
