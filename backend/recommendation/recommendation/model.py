@@ -1,18 +1,19 @@
-import attr
 import codecs
 import datetime
 import functools
 import itertools
 import json
-import numpy as np
 import random
 import re
-import redis
 from numbers import Real
-from scipy.spatial import distance
 from typing import (
 	Any, AnyStr, Callable, Dict, Iterable, NoReturn, Optional, Sequence,
 	Tuple, Union)
+
+import attr
+import numpy as np
+import redis
+from scipy.spatial import distance
 
 import util
 
@@ -467,6 +468,7 @@ class RecommendDB:
 			self.to_bias_key(name),
 			self.to_radius_key(name)))
 		_, taste = self.get_features(name, song=False, no_none=True)
+		taste = None if taste is None else taste[0]
 		bias, radius = self.get(*keys[1:], decoder=util.float_decoder)
 		values = (taste, bias, radius)
 		if all(missing := np.array([v is None for v in values])):
