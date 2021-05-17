@@ -64,7 +64,7 @@ def _handle(user: str) -> str:
 		return rec.recommend(user)
 
 
-def _response(status: int, message: Any, input_: Any) -> Dict:
+def _response(status: int, message: Any, body: Any) -> Dict:
 	return {
 		'statusCode': status,
 		'headers': {
@@ -76,8 +76,8 @@ def _response(status: int, message: Any, input_: Any) -> Dict:
 				'connectfm-recommendation'
 			]
 		},
-		'body': {
+		'body': jsonpickle.encode({
 			'message': message,
-			'input': input_
-		}
+			'input': body
+		})
 	}
