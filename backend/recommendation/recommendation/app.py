@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any, Callable, Dict, Optional
 
@@ -35,10 +36,10 @@ def handle(event, context):
 	logger.info('EVENT\n%s', jsonpickle.encode(event))
 	logger.info('CONTEXT\n%s', jsonpickle.encode(context))
 	try:
-		user = event['body']['id']
+		user = jsonpickle.decode(event['body'])['id']
 		recommendation = _handle(event['body'])
 		response = _response(200, recommendation, user)
-	except KeyError as e:
+	except (KeyError, json.decoder.JSONDecodeError) as e:
 		response = _response(400, repr(e), event)
 	return response
 
