@@ -1,69 +1,78 @@
 package com.cfm.recommend;
 
+import android.content.Context;
+
+import com.android.volley.DefaultRetryPolicy;
 import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
 import lombok.Builder;
 import lombok.Value;
 
+import com.android.volley.toolbox.JsonRequest;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+import com.google.gson.JsonObject;
+import com.spotifyFramework.Song;
+import com.spotifyFramework.SongService;
 import com.spotifyFramework.VolleyCallBack;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Provides song recommendations in the form of song URIs.
  */
-@Value
-@Builder
 public class Recommender {
+	private SongService songService;
+	private final RequestQueue queue;
 
-	public void get(final VolleyCallBack callBack) {
-		String endpoint = "https://whateverourURLis.com/";
-		JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
-				Request.Method.GET,
-				endpoint,
-				null,
-				response -> {
-					/*
-					We'd get the call, and probably call the Spotify API for info
-					On the URIs (I've already got a method set up for it in SongService)
+	public Recommender(Context context) {
+		queue = Volley.newRequestQueue(context);
+		songService = new SongService(context);
+	}
+	//public Song getRecommendation() {return recommendation;}
 
-					Then we store the now Song data structures in a List within this object
+	public void get(String id,final VolleyCallBack callBack) {
+		String endpoint = "https://8vjxa5x5bc.execute-api.us-east-2.amazonaws.com/dev/recommendation";
+		try {
+			JSONObject params = new JSONObject();
+			params.put("id", id);
+			System.out.println(params.toString());
+			JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(
+					Request.Method.POST,
+					endpoint,
+					params,
+					new Response.Listener<JSONObject>() {
+						@Override
+						public void onResponse(JSONObject response) {
+							System.out.println("Recommender RESPONSE:: " + response.toString());
+						}
+					},
+					new Response.ErrorListener() {
+						@Override
+						public void onErrorResponse(VolleyError error) {
+							System.out.println(error.toString());
+						}
+					}
+			);
+			int timeout = 25000; // 25 seconds
 
-					After all that, we call the callback bc we know the data is compiled and
-					properly stored
-					 */
+			jsonObjectRequest.setRetryPolicy(new DefaultRetryPolicy(
+					timeout,
+					DefaultRetryPolicy.DEFAULT_MAX_RETRIES,
+					DefaultRetryPolicy.DEFAULT_BACKOFF_MULT));
 
-					/*
-					RESPONSE TO ABOVE (rdt17):
-						I think that is too much responsibility for a single class; too much coupling. Let
-						this class just be responsible for giving you a song URI. Keeping the whole thing as
-						a pipeline of transformations will help keep the logic organized. Using the Java
-						functional API / lambda notation:
-							1. Get recommended song URI: () -> recommender.recommend()
-							2. Get song metadata (album image, artist, etc.): r -> getMetadata(r)
-							3. Add song to the playback queue: s -> queue.add(s)
-						I'm not sure if this actually how it is organized, but entangling the functionality
-						like that will make debugging a nightmare. To go along with the SongService naming
-						convention, the RecommendService, SongService, and PlaybackService should be
-						completely oblivious to each other. They all do (or at least should do) different,
-						independent tasks.
-					 */
-					callBack.onSuccess();
+			queue.add(jsonObjectRequest);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
 
-					/*
-					Then we can do whatever we want down here to give info back to the server
-					abt updated information (We could have prior info as a param)
-					 */
-
-					/*
-					RESPONSE TO ABOVE (rdt17):
-						There is nothing the server needs to know. All it does is gives recommendations. All
-						data it receives is from ElastiCache, which is after its been saved in DataStore,
-						synced to DynamoDB, and then processed by Alexs' Lambda function to be put into the
-						cache.
-					 */
-				}, error -> {
-
-				}
-		);
 	}
 
 }

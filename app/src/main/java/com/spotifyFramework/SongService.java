@@ -67,7 +67,6 @@ public class SongService {
 								}
 
 								JSONArray artists = object.getJSONArray("artists");
-								System.out.println(artists.length());
 								for (int j = 0; j < artists.length(); j++) {
 									JSONObject artist = artists.getJSONObject(j);
 									s.setArtist(artist.getString("id"),artist.getString("name"));
@@ -126,12 +125,8 @@ public class SongService {
 								}
 
 								JSONArray artists = object.getJSONArray("artists");
-								System.out.println(artists.length());
 								for (int j = 0; j < artists.length(); j++) {
 									JSONObject artist = artists.getJSONObject(j);
-									System.out.println(artist.toString());
-									System.out.println(artist.getString("id"));
-									System.out.println(artist.getString("name"));
 									s.setArtist(artist.getString("id"),artist.getString("name"));
 
 								}
@@ -237,7 +232,5 @@ public class SongService {
 		};
 		queue.add(jsonObjectRequest);
 	}
-
-
 
 }
