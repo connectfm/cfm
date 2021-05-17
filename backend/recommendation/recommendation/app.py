@@ -1,6 +1,7 @@
-import jsonpickle
 import os
 from typing import Any, Callable, Dict, Optional
+
+import jsonpickle
 
 import model
 import recommend
@@ -34,8 +35,9 @@ def handle(event, context):
 	logger.info('EVENT\n%s', jsonpickle.encode(event))
 	logger.info('CONTEXT\n%s', jsonpickle.encode(context))
 	try:
+		user = event['body']['id']
 		recommendation = _handle(event['body'])
-		response = _response(200, recommendation, event)
+		response = _response(200, recommendation, user)
 	except KeyError as e:
 		response = _response(400, repr(e), event)
 	return response
@@ -59,12 +61,12 @@ def _handle(user: str) -> str:
 		return rec.recommend(user)
 
 
-def _response(status: int, message: Any, event: Any) -> Dict:
+def _response(status: int, message: Any, input_: Any) -> Dict:
 	return {
 		'statusCode': status,
 		'headers': {'x-custom-header': 'connectfm-recommendation'},
 		'body': {
 			'message': message,
-			'input': event,
+			'input': input_,
 		}
 	}

@@ -108,7 +108,7 @@ class RecommendData:
 
 	def get_tastes(self, n: int = 1, d: int = 10) -> np.ndarray:
 		"""Randomly generates n d-dimensional taste vectors"""
-		return self._rng.standard_normal((n, d))
+		return self._rng.uniform(0, 1, size=(n, d))
 
 	def get_biases(self, n: int = 1) -> Union[np.ndarray, float]:
 		"""Randomly generates n biases"""

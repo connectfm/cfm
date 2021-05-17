@@ -449,6 +449,8 @@ class RecommendDB:
 		logger.info('Finding the neighbors of user %s', user)
 		if all(loc := (long, lat, rad)):
 			key = self.get_location_key()
+			# User also counts is a neighbor, so we have to add 1
+			n = None if n is None else n + 1
 			ne = self._redis.georadius(key, *loc, units, count=n)
 			ne = [u for n in ne if (u := self._decode(n, 'utf-8')) != user]
 			logger.info('Found %d neighbors of user %s', len(ne), user)
@@ -464,7 +466,7 @@ class RecommendDB:
 			self.to_taste_key(name),
 			self.to_bias_key(name),
 			self.to_radius_key(name)))
-		taste = self.get_features(name, song=False)[1][0]
+		_, taste = self.get_features(name, song=False, no_none=True)
 		bias, radius = self.get(*keys[1:], decoder=util.float_decoder)
 		values = (taste, bias, radius)
 		if all(missing := np.array([v is None for v in values])):
