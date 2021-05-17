@@ -40,7 +40,7 @@ def handle(event, context):
 		body = jsonpickle.decode(body) if isinstance(body, str) else body
 		user = body['id']
 		recommendation = _handle(user)
-		response = _response(200, recommendation, body)
+		response = _response(200, str(recommendation), body)
 	except (KeyError, json.decoder.JSONDecodeError) as e:
 		response = _response(400, repr(e), body)
 	return response
