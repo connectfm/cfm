@@ -35,14 +35,14 @@ def handle(event, context):
 	logger.info('ENVIRONMENT\n%s', jsonpickle.encode(dict(**os.environ)))
 	logger.info('EVENT\n%s', jsonpickle.encode(event))
 	logger.info('CONTEXT\n%s', jsonpickle.encode(context))
+	body = event['body']
 	try:
-		if isinstance((body := event['body']), str):
-			body = jsonpickle.decode(body)
+		body = jsonpickle.decode(body) if isinstance(body, str) else body
 		user = body['id']
 		recommendation = _handle(user)
-		response = _response(200, recommendation, user)
+		response = _response(200, recommendation, body)
 	except (KeyError, json.decoder.JSONDecodeError) as e:
-		response = _response(400, repr(e), event)
+		response = _response(400, repr(e), body)
 	return response
 
 
@@ -67,9 +67,17 @@ def _handle(user: str) -> str:
 def _response(status: int, message: Any, input_: Any) -> Dict:
 	return {
 		'statusCode': status,
-		'headers': {'x-custom-header': 'connectfm-recommendation'},
+		'headers': {
+			'Content-Type': 'application/json'
+		},
+		'isBase64Encoded': False,
+		'multiValueHeaders': {
+			'X-Custom-Header': [
+				'connectfm-recommendation'
+			]
+		},
 		'body': {
 			'message': message,
-			'input': input_,
+			'input': input_
 		}
 	}
