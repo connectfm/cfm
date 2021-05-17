@@ -37,7 +37,7 @@ def handle(event, context):
 	logger.info('CONTEXT\n%s', jsonpickle.encode(context))
 	try:
 		user = event['body']['id']
-		recommendation = _handle(event['body'])
+		recommendation = _handle(user)
 		response = _response(200, recommendation, user)
 	except (KeyError, json.decoder.JSONDecodeError) as e:
 		response = _response(400, repr(e), event)
